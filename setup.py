@@ -44,6 +44,7 @@ setup(
             "pydocstyle>=2.1.1,<3",
             "coverage>=4.5.1,<5",
             "docutils>=0.14,<1",
+            "pyinstaller>=4,<5",
         ],
     },
     py_modules=["rasaeco"],
