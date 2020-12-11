@@ -45,11 +45,11 @@ jobs:
         architecture: 'x64'
 
     - name: Install dependencies
-      run: pip3 install .[dev]
+      run: pip3 install -e .[dev]
 
     - name: Package the release
       run: |
-        pyinstaller rasaeco\pyrasaeco_render.py --name pyrasaeco-render
+        pyinstaller.exe rasaeco\pyrasaeco_render.py --name pyrasaeco-render
         cd dist
         Compress-Archive -Path pyrasaeco-render pyrasaeco-render.${{ steps.inferVersion.outputs.version }}.zip
 
