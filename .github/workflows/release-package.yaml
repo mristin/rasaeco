@@ -44,10 +44,11 @@ jobs:
         python-version: '3.8'
         architecture: 'x64'
 
-    - run: pip3 install .[dev]
+    - name: Install dependencies
+      run: pip3 install .[dev]
 
     - name: Package the release
-    - run: |
+      run: |
         pyinstaller rasaeco\pyrasaeco_render.py --name pyrasaeco-render
         cd dist
         Compress-Archive -Path pyrasaeco-render pyrasaeco-render.${{ steps.inferVersion.outputs.version }}.zip
