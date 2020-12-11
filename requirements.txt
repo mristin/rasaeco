@@ -1,0 +1,5 @@
+marko>=0,<1
+jinja2>=2,<3
+icontract>=2,<3
+typeguard>=2,<3
+matplotlib>=3.3.3,<4
