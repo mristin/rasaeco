@@ -21,7 +21,6 @@ with open(os.path.join(here, "requirements.txt"), encoding="utf-8") as fid:
 
 setup(
     name="rasaeco",
-    # Don't forget to update the version in __init__.py and CHANGELOG.rst!
     version="0.0.1",
     description="Help analyze software requirements in AECO industry",
     long_description=long_description,
