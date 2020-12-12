@@ -90,7 +90,6 @@ def _render_volumetric_plot(
 
     Return errors if any.
     """
-    # Prepare some coordinates
     x, y, z = np.indices(
         (
             len(rasaeco.model.PHASES),
@@ -125,40 +124,44 @@ def _render_volumetric_plot(
     for cube in cubes[1:]:
         voxels = voxels | cube
 
-    # and plot everything
     fig = plt.figure()
-    ax = fig.gca(projection="3d")
-    ax.voxels(voxels, edgecolor="k")
-
-    ax.set_xticks(list(range(len(rasaeco.model.PHASES) + 1)))
-    ax.set_xticklabels([""] * (len(rasaeco.model.PHASES) + 1))
-
-    for i, phase in enumerate(rasaeco.model.PHASES):
-        ax.text(i + 0.5, -3.5, 0, phase, color="green", fontsize=8, zdir="y")
-
-    ax.set_yticks(list(range(len(rasaeco.model.LEVELS) + 1)))
-    ax.set_yticklabels([""] * (len(rasaeco.model.LEVELS) + 1))
-
-    for i, level in enumerate(rasaeco.model.LEVELS):
-        ax.text(len(rasaeco.model.PHASES) + 0.7, i, 0, level, color="red", fontsize=8)
-
-    ax.set_zticks(range(len(rasaeco.model.ASPECTS) + 1))
-    ax.set_zticklabels([""] * (len(rasaeco.model.ASPECTS) + 1))
-
-    for i, aspect in enumerate(rasaeco.model.ASPECTS):
-        ax.text(
-            len(rasaeco.model.PHASES) + 0.4,
-            len(rasaeco.model.LEVELS) + 1,
-            i,
-            aspect,
-            color="blue",
-            fontsize=8,
-        )
-
     try:
-        plt.savefig(str(plot_path))
-    except Exception as error:
-        return [f"Failed to save the volumetric plot to: {plot_path}"]
+        ax = fig.gca(projection="3d")
+        ax.voxels(voxels, edgecolor="k")
+
+        ax.set_xticks(list(range(len(rasaeco.model.PHASES) + 1)))
+        ax.set_xticklabels([""] * (len(rasaeco.model.PHASES) + 1))
+
+        for i, phase in enumerate(rasaeco.model.PHASES):
+            ax.text(i + 0.5, -3.5, 0, phase, color="green", fontsize=8, zdir="y")
+
+        ax.set_yticks(list(range(len(rasaeco.model.LEVELS) + 1)))
+        ax.set_yticklabels([""] * (len(rasaeco.model.LEVELS) + 1))
+
+        for i, level in enumerate(rasaeco.model.LEVELS):
+            ax.text(
+                len(rasaeco.model.PHASES) + 0.7, i, 0, level, color="red", fontsize=8
+            )
+
+        ax.set_zticks(range(len(rasaeco.model.ASPECTS) + 1))
+        ax.set_zticklabels([""] * (len(rasaeco.model.ASPECTS) + 1))
+
+        for i, aspect in enumerate(rasaeco.model.ASPECTS):
+            ax.text(
+                len(rasaeco.model.PHASES) + 0.4,
+                len(rasaeco.model.LEVELS) + 1,
+                i,
+                aspect,
+                color="blue",
+                fontsize=8,
+            )
+
+        try:
+            plt.savefig(str(plot_path))
+        except Exception as error:
+            return [f"Failed to save the volumetric plot to: {plot_path}"]
+    finally:
+        plt.close(fig)
 
     # Crop manually
     with PIL.Image.open(plot_path) as image:
@@ -394,6 +397,11 @@ def _render_scenario(
     meta = ET.Element("meta")
     meta.attrib["charset"] = "utf-8"
     head_el.append(meta)
+
+    live_script = ET.Element("script")
+    live_script.attrib["src"] = "https://livejs.com/live.js"
+    live_script.text = " "
+    head_el.append(live_script)
 
     title_el = ET.Element("title")
     title_el.text = scenario.title

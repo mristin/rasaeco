@@ -12,6 +12,8 @@ import sys
 import threading
 import time
 from typing import Tuple, Optional, Union, List, TextIO, Generator, TYPE_CHECKING
+import http.server
+import socketserver
 
 import watchdog.observers
 import watchdog.events
@@ -31,6 +33,7 @@ class Continuously:
     """Represent the command to render everything once."""
 
     scenarios_dir: pathlib.Path
+    port: Optional[int]
 
 
 def _make_argument_parser() -> argparse.ArgumentParser:
@@ -46,6 +49,14 @@ def _make_argument_parser() -> argparse.ArgumentParser:
     continuously = subparsers.add_parser(
         "continuously",
         help="Re-render continuously the scenarios and the scenario ontology",
+    )
+
+    continuously.add_argument(
+        "-p",
+        "--port",
+        help="Port on which the demo server should listen to.\n\n"
+        "If not specified, the demo server will not be started.",
+        type=int,
     )
 
     for command in [once, continuously]:
@@ -74,7 +85,10 @@ def _parse_args_to_params(
         return Once(scenarios_dir=pathlib.Path(args.scenarios_dir)), []
     elif args.command == "continuously":
         return (
-            Continuously(scenarios_dir=pathlib.Path(args.scenarios_dir)),
+            Continuously(
+                scenarios_dir=pathlib.Path(args.scenarios_dir),
+                port=None if args.port is None else int(args.port),
+            ),
             [],
         )
     else:
@@ -123,13 +137,109 @@ else:
     StopQueue = queue.Queue
 
 
+class ThreadedServer:
+    """Encapsulate a HTTP server running in a separate thread."""
+
+    def __init__(
+        self, port: int, scenarios_dir: pathlib.Path, stdout: TextIO, stderr: TextIO
+    ) -> None:
+        """
+        Initialize with the given values and specify the handler.
+
+        No thread is started.
+        """
+        self.port = port
+        self.scenarios_dir = scenarios_dir
+        self.stdout = stdout
+        self.stderr = stderr
+
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):  # type: ignore
+                super().__init__(*args, directory=str(scenarios_dir), **kwargs)  # type: ignore
+
+            def log_message(self, format, *args):  # type: ignore
+                pass
+
+            def do_GET(self):  # type: ignore
+                if self.path == "/":
+                    self.path = "ontology.html"
+
+                return http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+        self.handler = Handler
+
+        self._httpd = http.server.HTTPServer(("", port), Handler)
+        self._work_thread = None  # type: Optional[threading.Thread]
+
+        self._server_exception_lock = threading.Lock()
+        self._server_exception = None  # type: Optional[Exception]
+
+    def start(self) -> None:
+        """Start the server in a separate thread."""
+        pass  # for pydocstyle
+
+        def serve() -> None:
+            """Serve forever."""
+            prefix = f"In {ThreadedServer.__name__}.{serve.__name__}"
+            try:
+                print(
+                    f"{prefix}: Starting to serve {self.scenarios_dir} forever on: "
+                    f"http://localhost:{self.port}",
+                    file=self.stdout,
+                )
+
+                self._httpd.serve_forever()
+
+                print(f"{prefix}: Stopped serving forever.", file=self.stdout)
+
+            except Exception as error:
+                print(
+                    f"{prefix}: Caught an exception in the HTTPD server "
+                    f"(it will be raised at shutdown): {error}",
+                    file=self.stderr,
+                )
+
+                with self._server_exception_lock:
+                    self._server_exception = error
+
+        self._work_thread = threading.Thread(target=serve)
+        self._work_thread.start()
+
+    def shutdown(self) -> None:
+        """Shutdown the server and raise any exception from the server."""
+        prefix = f"In {ThreadedServer.__name__}.{ThreadedServer.shutdown.__name__}"
+
+        print(f"{prefix}: Instructing the server to shut down...", file=self.stdout)
+        with self._server_exception_lock:
+            if self._server_exception is not None:
+                raise self._server_exception
+
+        print(f"{prefix}: Waiting for server to shut down...", file=self.stdout)
+        self._httpd.shutdown()
+
+    def __enter__(self) -> "ThreadedServer":
+        """Start the server."""
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore
+        """Shut down the server."""
+        self.shutdown()
+
+
 def _render_continuosly(
-    stdout: TextIO, stderr: TextIO, scenarios_dir: pathlib.Path, stop: StopQueue
+    stdout: TextIO,
+    stderr: TextIO,
+    scenarios_dir: pathlib.Path,
+    stop: StopQueue,
 ) -> None:
     """Render continuously the scenarios in an endless loop."""
-    last_modification = None  # type: Optional[float]
+    prefix = f"In {_render_continuosly.__name__}"
 
-    print(f"Entering the endless loop to render in-place: {scenarios_dir}", file=stdout)
+    print(
+        f"{prefix}: Entering the endless loop to render in-place: {scenarios_dir}",
+        file=stdout,
+    )
 
     signal_queue = queue.Queue()  # type: queue.Queue[int]
 
@@ -145,60 +255,55 @@ def _render_continuosly(
             if extension == ".md":
                 signal_queue.put(SHOULD_RERENDER)
 
-    def work() -> None:
+    def render() -> None:
         """Re-render on signals and quit on stop."""
         first = True
         while True:
-            action = None
-            empty = False
-            try:
-                action = signal_queue.get_nowait()
-            except queue.Empty:
-                empty = True
+            action = None  # type: Optional[int]
+            if not first:
+                action = signal_queue.get()
 
-            if first or not empty:
-                if first or action == SHOULD_RERENDER:
-                    errors = rasaeco.render.once(scenarios_dir=scenarios_dir)
-                    for error in errors:
-                        print(error, file=stderr)
+            if first or action == SHOULD_RERENDER:
+                errors = rasaeco.render.once(scenarios_dir=scenarios_dir)
+                for error in errors:
+                    print(error, file=stderr)
 
-                    if not errors:
-                        print(
-                            f"All scenarios re-rendered. Open the ontology in your browser: "
-                            f"file://{str(scenarios_dir.absolute() / 'ontology.html')}",
-                            file=stdout,
-                        )
-                        first = False
+                if not errors:
+                    print(
+                        f"{prefix}: The scenarios have been re-rendered.", file=stdout
+                    )
+                    first = False
 
-                elif action == SHOULD_STOP:
-                    return
+            elif action == SHOULD_STOP:
+                return
 
-            time.sleep(0.5)
+            else:
+                raise AssertionError(f"Unexpected action: {action}")
 
-    work_thread = threading.Thread(target=work)
-    work_thread.start()
+    render_thread = threading.Thread(target=render)
+    render_thread.start()
 
     observer = watchdog.observers.Observer()
     observer.schedule(EventHandler(), str(scenarios_dir), recursive=True)
+    observer.start()
+
     try:
-        observer.start()
-        try:
-            while True:
-                try:
-                    stop.get_nowait()
-                    signal_queue.put(SHOULD_STOP)
-                    observer.stop()
-                    return
-                except queue.Empty:
-                    time.sleep(0.5)
-        except KeyboardInterrupt:
-            observer.stop()
+        stop.get()
+        print(
+            f"{prefix}: Received a stop, "
+            f"putting it back to the queue to propagate it to other threads."
+        )
+        stop.put(True)
     finally:
+        print(f"{prefix}: Instructing the observer to stop...", file=stdout)
         observer.stop()
+        print(f"{prefix}: Joining the observer...", file=stdout)
         observer.join()
 
+        print(f"{prefix}: Putting SHOULD_STOP on signal queue...", file=stdout)
         signal_queue.put(SHOULD_STOP)
-        work_thread.join()
+        print(f"{prefix}: Joining the render thread...", file=stdout)
+        render_thread.join()
 
 
 def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
@@ -223,8 +328,42 @@ def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
     if isinstance(command, Once):
         errors = rasaeco.render.once(scenarios_dir=command.scenarios_dir)
     elif isinstance(command, Continuously):
-        stop = queue.Queue()  # type: queue.Queue[bool]
-        _render_continuosly(stdout, stderr, command.scenarios_dir, stop)
+        server = None  # type: Optional[ThreadedServer]
+
+        with contextlib.ExitStack() as exit_stack:
+            if command.port is not None:
+                server = ThreadedServer(
+                    port=command.port,
+                    scenarios_dir=command.scenarios_dir,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+                server.start()
+                exit_stack.push(server)
+
+            stop = queue.Queue()  # type: queue.Queue[bool]
+
+            work_thread = threading.Thread(
+                target=_render_continuosly,
+                args=(stdout, stderr, command.scenarios_dir, stop),
+            )
+
+            prefix = "In the main"
+            work_thread.start()
+            try:
+                while True:
+                    time.sleep(0.5)
+            except KeyboardInterrupt:
+                print(f"{prefix}: Got a keyboard interrupt.", file=stdout)
+            finally:
+                print(f"{prefix}: Sending a stop from the main thread...", file=stdout)
+                stop.put(True)
+                print(
+                    f"{prefix}: Waiting for the work thread in main to join...",
+                    file=stdout,
+                )
+                work_thread.join()
+
     else:
         raise AssertionError("Unhandled command: {}".format(command))
 
