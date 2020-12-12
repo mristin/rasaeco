@@ -15,9 +15,6 @@ from typing import Tuple, Optional, Union, List, TextIO, Generator, TYPE_CHECKIN
 import http.server
 import socketserver
 
-import watchdog.observers
-import watchdog.events
-
 import rasaeco.render
 
 
@@ -227,14 +224,22 @@ class ThreadedServer:
         self.shutdown()
 
 
-def _render_continuosly(
+def _render_continuously(
     stdout: TextIO,
     stderr: TextIO,
     scenarios_dir: pathlib.Path,
     stop: StopQueue,
 ) -> None:
     """Render continuously the scenarios in an endless loop."""
-    prefix = f"In {_render_continuosly.__name__}"
+    # Watchdog modules are imported here (instead of importing them at the top) since
+    # we had problems with permissions on Windows and anti-virus software complaining.
+    #
+    # This way the users can still use the tool without the continuous rendering if they have
+    # trouble with the permissions.
+    import watchdog.observers
+    import watchdog.events
+
+    prefix = f"In {_render_continuously.__name__}"
 
     print(
         f"{prefix}: Entering the endless loop to render in-place: {scenarios_dir}",
@@ -344,7 +349,7 @@ def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
             stop = queue.Queue()  # type: queue.Queue[bool]
 
             work_thread = threading.Thread(
-                target=_render_continuosly,
+                target=_render_continuously,
                 args=(stdout, stderr, command.scenarios_dir, stop),
             )
 
