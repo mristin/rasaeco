@@ -51,7 +51,7 @@ class TestOnSamples(unittest.TestCase):
 
             stop = queue.Queue()  # type: queue.Queue[bool]
             worker_thread = threading.Thread(
-                target=rasaeco.pyrasaeco_render._render_continuosly,
+                target=rasaeco.pyrasaeco_render._render_continuously,
                 args=(stdout, stderr, tmp_scenarios_dir, stop),
             )
             worker_thread.start()
