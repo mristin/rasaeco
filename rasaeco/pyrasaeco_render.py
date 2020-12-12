@@ -5,9 +5,16 @@ import argparse
 import contextlib
 import dataclasses
 import io
+import os
 import pathlib
+import queue
 import sys
-from typing import Tuple, Optional, Union, List, TextIO, Generator
+import threading
+import time
+from typing import Tuple, Optional, Union, List, TextIO, Generator, TYPE_CHECKING
+
+import watchdog.observers
+import watchdog.events
 
 import rasaeco.render
 
@@ -24,7 +31,6 @@ class Continuously:
     """Represent the command to render everything once."""
 
     scenarios_dir: pathlib.Path
-    port: int
 
 
 def _make_argument_parser() -> argparse.ArgumentParser:
@@ -40,13 +46,6 @@ def _make_argument_parser() -> argparse.ArgumentParser:
     continuously = subparsers.add_parser(
         "continuously",
         help="Re-render continuously the scenarios and the scenario ontology",
-    )
-
-    continuously.add_argument(
-        "-p",
-        "--port",
-        help="Port on which to serve the re-rerendered scenarios",
-        default=5000,
     )
 
     for command in [once, continuously]:
@@ -74,13 +73,8 @@ def _parse_args_to_params(
     if args.command == "once":
         return Once(scenarios_dir=pathlib.Path(args.scenarios_dir)), []
     elif args.command == "continuously":
-        if args.port < 0:
-            return None, [f"Unexpected negative port: {args.port}"]
-
         return (
-            Continuously(
-                scenarios_dir=pathlib.Path(args.scenarios_dir), port=args.port
-            ),
+            Continuously(scenarios_dir=pathlib.Path(args.scenarios_dir)),
             [],
         )
     else:
@@ -122,6 +116,91 @@ def _parse_args(
             return None, out.read(), err.read()
 
 
+# See https://mypy.readthedocs.io/en/stable/common_issues.html#using-classes-that-are-generic-in-stubs-but-not-at-runtime
+if TYPE_CHECKING:
+    StopQueue = queue.Queue[bool]  # This is only processed by mypy.
+else:
+    StopQueue = queue.Queue
+
+
+def _render_continuosly(
+    stdout: TextIO, stderr: TextIO, scenarios_dir: pathlib.Path, stop: StopQueue
+) -> None:
+    """Render continuously the scenarios in an endless loop."""
+    last_modification = None  # type: Optional[float]
+
+    print(f"Entering the endless loop to render in-place: {scenarios_dir}", file=stdout)
+
+    signal_queue = queue.Queue()  # type: queue.Queue[int]
+
+    SHOULD_STOP = 0
+    SHOULD_RERENDER = 1
+
+    class EventHandler(watchdog.events.FileSystemEventHandler):  # type: ignore
+        """Push to the signal queue on any event."""
+
+        def on_any_event(self, event):  # type: ignore
+            """Handle any event."""
+            _, extension = os.path.splitext(event.src_path)
+            if extension == ".md":
+                signal_queue.put(SHOULD_RERENDER)
+
+    def work() -> None:
+        """Re-render on signals and quit on stop."""
+        first = True
+        while True:
+            action = None
+            empty = False
+            try:
+                action = signal_queue.get_nowait()
+            except queue.Empty:
+                empty = True
+
+            if first or not empty:
+                if first or action == SHOULD_RERENDER:
+                    errors = rasaeco.render.once(scenarios_dir=scenarios_dir)
+                    for error in errors:
+                        print(error, file=stderr)
+
+                    if not errors:
+                        print(
+                            f"All scenarios re-rendered. Open the ontology in your browser: "
+                            f"file://{str(scenarios_dir.absolute() / 'ontology.html')}",
+                            file=stdout,
+                        )
+                        first = False
+
+                elif action == SHOULD_STOP:
+                    return
+
+            time.sleep(0.5)
+
+    work_thread = threading.Thread(target=work)
+    work_thread.start()
+
+    observer = watchdog.observers.Observer()
+    observer.schedule(EventHandler(), str(scenarios_dir), recursive=True)
+    try:
+        observer.start()
+        try:
+            while True:
+                try:
+                    stop.get_nowait()
+                    signal_queue.put(SHOULD_STOP)
+                    observer.stop()
+                    return
+                except queue.Empty:
+                    time.sleep(0.5)
+        except KeyboardInterrupt:
+            observer.stop()
+    finally:
+        observer.stop()
+        observer.join()
+
+        signal_queue.put(SHOULD_STOP)
+        work_thread.join()
+
+
 def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
     """Execute the main routine."""
     parser = _make_argument_parser()
@@ -144,7 +223,8 @@ def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
     if isinstance(command, Once):
         errors = rasaeco.render.once(scenarios_dir=command.scenarios_dir)
     elif isinstance(command, Continuously):
-        raise NotImplementedError("Continuous rendering is still not implemented.")
+        stop = queue.Queue()  # type: queue.Queue[bool]
+        _render_continuosly(stdout, stderr, command.scenarios_dir, stop)
     else:
         raise AssertionError("Unhandled command: {}".format(command))
 

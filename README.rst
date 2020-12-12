@@ -25,7 +25,9 @@ as it includes a 32bit version of Python3 in its environment!)
 
 Change to the directory where you unzipped the release.
 
-Render the scenarios in-place:
+Render once
+~~~~~~~~~~~
+Render the scenarios in-place once:
 
 .. code-block::
 
@@ -33,3 +35,22 @@ Render the scenarios in-place:
 
 Open the scenario ontology with your browser from:
 ``c:\some\path\to\scenarios\ontology.html``.
+
+Render continuously
+~~~~~~~~~~~~~~~~~~~
+Monitor the scenario files and re-render on changes:
+
+.. code-block::
+
+    pyrasaeco-render.exe continuously --scenarios_dir c:\some\path\to\scenarios
+
+Open the scenario ontology with your browser from:
+``c:\some\path\to\scenarios\ontology.html``.
+
+Help
+~~~~
+.. code-block::
+
+    pyrasaeco-render.exe -h
+    pyrasaeco-render.exe once -h
+    pyrasaeco-render.exe continuously -h

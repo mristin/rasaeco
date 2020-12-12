@@ -11,6 +11,9 @@ from typing import List, MutableMapping, Mapping, TypedDict
 import PIL
 import icontract
 import marko
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
