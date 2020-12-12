@@ -47,6 +47,22 @@ Monitor the scenario files and re-render on changes:
 Open the scenario ontology with your browser from:
 ``c:\some\path\to\scenarios\ontology.html``.
 
+Render continuously + automatic refresh
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+`pyrasaeco-render` can also start a demo server for you so that you do not have
+to manually re-load in the browser. You have to specify the port and the server
+will be automatically started:
+
+.. code-block::
+
+    pyrasaeco-render.exe continuously
+        --scenarios_dir c:\some\path\to\scenarios
+        --port 8000
+
+The ontology will be available on: ``http://localhost:8000``.
+
 Help
 ~~~~
 .. code-block::
