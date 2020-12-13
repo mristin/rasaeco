@@ -24,7 +24,13 @@ def main() -> int:
     repo_root = pathlib.Path(__file__).parent
 
     print("Black'ing...")
-    black_targets = ["rasaeco", "tests", "precommit.py", "setup.py"]
+    black_targets = [
+        "rasaeco",
+        "tests",
+        "precommit.py",
+        "setup.py",
+        "package_sample_scenarios.py",
+    ]
 
     if overwrite:
         subprocess.check_call(["black"] + black_targets, cwd=str(repo_root))
