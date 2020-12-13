@@ -296,7 +296,8 @@ def _render_continuously(
         stop.get()
         print(
             f"{prefix}: Received a stop, "
-            f"putting it back to the queue to propagate it to other threads."
+            f"putting it back to the queue to propagate it to other threads.",
+            file=stdout,
         )
         stop.put(True)
     finally:
