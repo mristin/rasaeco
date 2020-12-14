@@ -1,0 +1,141 @@
+<html>
+<head><meta charset="utf-8" /><script src="https://livejs.com/live.js"> </script><title>Scaffolding</title><style>body {
+    margin-right: 5%;
+    margin-left: 5%;
+    margin-top: 5%;
+    margin-bottom: 5%;
+    padding: 1%;
+    border: 1px solid black;
+}
+
+a.anchor {
+    text-decoration: none;
+    font-size: x-small;
+    margin-right: 1em;
+}
+
+span.phase {
+    background-color: #eefbfb;
+}
+
+span.level {
+    background-color: #eefbee;
+}
+
+pre {
+    background-color: #eeeefb;
+    padding: 1em;
+}
+</style></head><body>
+<a href="../ontology.html">Back to ontology</a><h1>Scaffolding</h1>
+<img src="volumetric.png" style="border: 1px solid #EEEEEE; padding: 10px;" /><h2>Summary</h2>
+<p>A wrong planification of scaffolding. Wrong height prevents the proper fixing of
+the reception platform. Workers not authorized to make any changes.</p>
+<h2>Models</h2>
+<div class="model">
+<h3><a href="#model-plan/main" class="anchor">🔗<a id="model-plan/main" /></a>plan/main</h3><p>This is the main model of the site plan covering the whole site.
+It is updated on demand, as the plan changes.</p>
+</div>
+<div class="model">
+<h3><a href="#model-observed/main" class="anchor">🔗<a id="model-observed/main" /></a>observed/main</h3><p>This is the main model representing the digital twin of the building.
+It is updated daily.</p>
+</div>
+<div class="model">
+<h3><a href="#model-staff" class="anchor">🔗<a id="model-staff" /></a>staff</h3><p>This is the model capturing the information about the site personnel.
+It is updated in real time.</p>
+</div>
+<h2>Definitions</h2>
+<div class="definition">
+<h3><a href="#def-scaffolds" class="anchor">🔗<a id="def-scaffolds" /></a>scaffolds</h3><pre><code class="language-bim">scaffoldLabel = IfcLabel("Scaffold")
+
+scaffolds = 
+    SELECT e
+    FROM
+        e is IfcBuildingElementType modeled in plan/main
+    WHERE 
+        e.ElementType == scaffoldLabel
+</code></pre>
+</div>
+<div class="definition">
+<h3><a href="#def-receptionPlatforms" class="anchor">🔗<a id="def-receptionPlatforms" /></a>receptionPlatforms</h3><pre><code class="language-bim">receptionPlatformLabel = IfcLabel("ReceptionPlatform")
+
+receptionPlatforms = 
+    SELECT e
+    FROM
+        e is IfcBuildingElementType modeled in observed/main
+    WHERE
+        e.ElementType == receptionPlatformLabel
+</code></pre>
+</div>
+<div class="definition">
+<h3><a href="#def-Workers" class="anchor">🔗<a id="def-Workers" /></a>Workers</h3><pre><code class="language-bin">workerLabel = IfcLabel("Worker")
+
+workers = 
+    SELECT a
+    FROM
+        a is IfcActor in staff
+    WHERE
+        a.Category == workerLabel
+</code></pre>
+</div>
+<h2>Scenario</h2>
+<h3>As-planned</h3>
+<p>The <a href="#def-scaffolds" class="ref">scaffolds</a> are expected to be tracked in
+the model <a href="#model-plan/main" class="modelref">plan/main</a>. The plan should include the position
+and the height of the scaffolds.  </p>
+<h3>As-observed</h3>
+<p>The possible placements for the reception platform should be computed based on
+the <a href="#model-observed/main" class="modelref">observed/main</a>.</p>
+<h3>As-planned <em>vs</em> As-observed</h3>
+<span class="phase" data-text="planning">
+    During the planning phase, the <a id="phase-anchor-bc26ed49-04a1-4484-9860-1e2f6e122c95" /><a href="#def-scaffolds" class="ref">scaffolds</a> are wrongly planed.
+<sup>planning</sup></span>
+<span class="phase" data-text="construction">
+    The <a id="phase-anchor-d27fc0d7-928d-4570-a3c9-072d2bba6b52" /><a href="#def-receptionPlatforms" class="ref">receptionPlatforms</a> can not be appropriately fixed 
+    on <span class="level" data-text="site">the site<a id="level-anchor-85af1606-7dfa-4603-9112-5340597640f8" /><sup>site</sup></span>.
+<sup>construction</sup></span>
+<div class="definition">
+<h3><a href="#def-misplacedScaffolds" class="anchor">🔗<a id="def-misplacedScaffolds" /></a>misplacedScaffolds</h3><p>Formally, we select the scaffolds with incorrectly planned height:</p>
+<pre><code class="language-bim">misplacedScaffolds = 
+    SELECT s
+    FROM
+        rp in receptionPlatforms
+        s in scaffolds
+    WHERE
+        abs(s.NominalHeight - rp.NominalHeight) &lt; 1 meter 
+</code></pre>
+</div>
+<h3>Analytics</h3>
+<p>The <a href="#def-misplacedScaffolds" class="ref">misplacedScaffolds</a> should be reported on the web platform.</p>
+<h3>Scheduling</h3>
+<p>All the tasks affected by the <a href="#def-misplacedScaffolds" class="ref">misplacedScaffolds</a> should be set
+to blocking.</p>
+<p>Formally:</p>
+<pre><code class="language-bim">tt = SELECT t 
+    FROM
+        s in misplacedScaffolds
+        t in IfcTask modeled in plan/main
+    WHERE
+        Affected(t, s)
+
+blockedLabel = IfcLabel("blocked")
+
+UPDATE
+    t.Status = blockedLabel
+FROM
+    t in tt
+</code></pre>
+<h3>Safety</h3>
+<p>No <a href="#def-workers" class="ref">worker</a> is allowed to make changes to
+the <a href="#def-misplacedScaffolds" class="ref">misplacedScaffolds</a>:</p>
+<pre><code class="language-bim">FROM
+    w in workers
+    s in misplacedScaffolds
+MUST
+    not CanModify(w, s)
+</code></pre>
+<p><span class="level" data-text="site">We consider only the scaffolding on a single construction
+site.<a id="level-anchor-49ed17e1-04ae-4857-bfa3-0aca7fda8df9" /><sup>site</sup></span></p>
+
+<h2>Phase Index</h2><ul><li><a href="#phase-anchor-bc26ed49-04a1-4484-9860-1e2f6e122c95">planning</a></li><li><a href="#phase-anchor-d27fc0d7-928d-4570-a3c9-072d2bba6b52">construction</a></li></ul><h2>Level Index</h2><ul><li><a href="#level-anchor-85af1606-7dfa-4603-9112-5340597640f8">site</a></li><li><a href="#level-anchor-49ed17e1-04ae-4857-bfa3-0aca7fda8df9">site</a></li></ul></body>
+</html>

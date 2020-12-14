@@ -30,6 +30,7 @@ def main() -> int:
         "precommit.py",
         "setup.py",
         "package_sample_scenarios.py",
+        "render_sample_scenarios.py"
     ]
 
     if overwrite:
