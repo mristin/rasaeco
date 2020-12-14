@@ -33,8 +33,13 @@ Render the scenarios in-place once:
 
     pyrasaeco-render.exe once --scenarios_dir c:\some\path\to\scenarios
 
+(Change ``c:\some\path\to\scenarios`` to fit your system.)
+
 Open the scenario ontology with your browser from:
 ``c:\some\path\to\scenarios\ontology.html``.
+
+(Don't forget to change ``c:\some\path\to\scenarios`` again to fit 
+your system.)
 
 Render continuously
 ~~~~~~~~~~~~~~~~~~~
@@ -44,8 +49,14 @@ Monitor the scenario files and re-render on changes:
 
     pyrasaeco-render.exe continuously --scenarios_dir c:\some\path\to\scenarios
 
+(Change ``c:\some\path\to\scenarios`` to fit your system.)
+
 Open the scenario ontology with your browser from:
 ``c:\some\path\to\scenarios\ontology.html``.
+
+(Don't forget to change ``c:\some\path\to\scenarios`` again to fit 
+your system.)
+
 
 Render continuously + automatic refresh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,6 +71,8 @@ will be automatically started:
     pyrasaeco-render.exe continuously
         --scenarios_dir c:\some\path\to\scenarios
         --port 8000
+
+(Change ``c:\some\path\to\scenarios`` to fit your system.)
 
 The ontology will be available on: ``http://localhost:8000``.
 
