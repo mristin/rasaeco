@@ -1,5 +1,6 @@
 """Represent an ontology of scenarios."""
-from typing import Optional, List, MutableMapping, Mapping, cast
+import pathlib
+from typing import Optional, List, MutableMapping, Mapping, cast, Dict
 
 import icontract
 
@@ -135,11 +136,19 @@ class Relation:
 class Scenario:
     """Represent a working model of a scenario."""
 
-    def __init__(self, identifier: str, title: str, volumetric: List[Cubelet]) -> None:
+    @icontract.require(lambda relative_path: not relative_path.is_absolute())
+    def __init__(
+        self,
+        identifier: str,
+        title: str,
+        volumetric: List[Cubelet],
+        relative_path: pathlib.Path,
+    ) -> None:
         """Initialize with the given values."""
         self.identifier = identifier
         self.title = title
         self.volumetric = volumetric
+        self.relative_path = relative_path
 
 
 class Ontology:
@@ -155,22 +164,24 @@ class Ontology:
     def __init__(self, scenarios: List[Scenario], relations: List[Relation]) -> None:
         """Initialize with the given values."""
         self.scenarios = scenarios
-        self.scenario_map = {s.identifier: s for s in scenarios}
+        self.scenario_map = {
+            s.identifier: s for s in scenarios
+        }  # type: Dict[str, Scenario]
 
-        relations_from = dict()  # type: MutableMapping[Scenario, List[Scenario]]
-        relations_to = dict()  # type: MutableMapping[Scenario, List[Scenario]]
+        relations_from = dict()  # type: MutableMapping[Scenario, List[Relation]]
+        relations_to = dict()  # type: MutableMapping[Scenario, List[Relation]]
         for relation in relations:
             source = self.scenario_map[relation.source]
             target = self.scenario_map[relation.target]
 
             if source not in relations_from:
                 relations_from[source] = []
-            relations_from[source].append(target)
+            relations_from[source].append(relation)
 
             if target not in relations_to:
                 relations_to[target] = []
-            relations_to[target].append(source)
+            relations_to[target].append(relation)
 
         self.relations = relations
-        self.relations_from = cast(Mapping[str, List[Scenario]], relations_from)
-        self.relations_to = cast(Mapping[str, List[Scenario]], relations_to)
+        self.relations_from = cast(Mapping[Scenario, List[Relation]], relations_from)
+        self.relations_to = cast(Mapping[Scenario, List[Relation]], relations_to)
