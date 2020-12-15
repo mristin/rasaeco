@@ -3,7 +3,7 @@
     "identifier": "scaffolding",
     "title": "Scaffolding",
     "relations": [
-        { "target": "z_dummy_scenario", "nature": "instanceOf" }
+        { "target": "z_dummy_scenario", "nature": "is instance of" }
     ],
     "volumetric": [
         { 
@@ -14,8 +14,6 @@
     ]
 }
 </rasaeco-meta>
-
-# Scaffolding
 
 ## Summary
 

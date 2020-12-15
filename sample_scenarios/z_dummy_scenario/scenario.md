@@ -13,6 +13,4 @@
 }
 </rasaeco-meta>
 
-# Dummy Scenario
-
 This scenario is intentionally left empty.

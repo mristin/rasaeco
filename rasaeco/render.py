@@ -172,9 +172,17 @@ def _render_volumetric_plot(
     return []
 
 
+def _element_with_text(tag: str, text: str) -> ET.Element:
+    """Create an element with text."""
+    result = ET.Element(tag)
+    result.text = text
+    return result
+
+
 @icontract.require(lambda scenario_path: scenario_path.suffix == ".md")
 def _render_scenario(
     scenario: rasaeco.model.Scenario,
+    ontology: rasaeco.model.Ontology,
     scenario_path: pathlib.Path,
     scenarios_dir: pathlib.Path,
 ) -> List[str]:
@@ -347,8 +355,6 @@ def _render_scenario(
     ##
 
     if phase_anchors:
-        body = next(root.iter("body"))
-
         heading_el = ET.Element("h2")
         heading_el.text = "Phase Index"
         body.append(heading_el)
@@ -370,8 +376,6 @@ def _render_scenario(
     ##
 
     if level_anchors:
-        body = next(root.iter("body"))
-
         heading_el = ET.Element("h2")
         heading_el.text = "Level Index"
         body.append(heading_el)
@@ -444,25 +448,76 @@ def _render_scenario(
     root.insert(0, head_el)
 
     ##
-    # Insert back button
+    # Insert the relations to other scenarios
     ##
 
-    back_link = ET.Element("a")
+    relations_from = ontology.relations_from.get(scenario, [])
+    relations_to = ontology.relations_to.get(scenario, [])
 
-    back_url = "/".join(
-        [".."] * len(scenario_path.parent.relative_to(scenarios_dir).parts)
-        + ["ontology.html"]
-    )
+    if len(relations_from) > 0:
+        ul = ET.Element("ul")
+        for relation in relations_from:
+            assert relation.source == scenario.identifier
 
-    back_link.attrib["href"] = back_url
-    back_link.text = "Back to ontology"
+            li = ET.Element("li")
+            li.append(
+                _element_with_text("span", f"{scenario.title} {relation.nature} ")
+            )
 
-    body = root.find("body")
-    assert body is not None
-    for i, child in enumerate(body):
-        if child.tag == "h1":
-            body.insert(i, back_link)
-            break
+            target = ontology.scenario_map[relation.target]
+            link = ET.Element("a")
+
+            target_url = (
+                pathlib.PurePosixPath(
+                    *([".."] * len(scenario.relative_path.parent.parts))
+                )
+                / target.relative_path.parent
+                / f"{target.relative_path.stem}.html"
+            ).as_posix()
+
+            link.attrib["href"] = target_url
+            link.text = target.title
+            li.append(link)
+
+            ul.append(li)
+
+        ul.tail = "\n"
+        body.insert(0, ul)
+        body.insert(
+            0, _element_with_text(tag="h2", text="Relations from Other Scenarios")
+        )
+
+    if len(relations_to) > 0:
+        ul = ET.Element("ul")
+        for relation in relations_to:
+            assert relation.target == scenario.identifier
+
+            li = ET.Element("li")
+            link = ET.Element("a")
+            source = ontology.scenario_map[relation.source]
+
+            source_url = (
+                pathlib.PurePosixPath(
+                    *([".."] * len(scenario.relative_path.parent.parts))
+                )
+                / source.relative_path.parent
+                / f"{source.relative_path.stem}.html"
+            ).as_posix()
+
+            link.attrib["href"] = source_url
+            link.text = source.title
+            li.append(link)
+
+            li.append(
+                _element_with_text("span", f" {relation.nature} {scenario.title}")
+            )
+
+            ul.append(li)
+
+        body.insert(0, ul)
+        body.insert(
+            0, _element_with_text(tag="h2", text="Relations to Other Scenarios")
+        )
 
     ##
     # Insert volumetric plot
@@ -472,12 +527,30 @@ def _render_scenario(
     img.attrib["src"] = "volumetric.png"
     img.attrib["style"] = "border: 1px solid #EEEEEE; padding: 10px;"
 
-    body = root.find("body")
-    assert body is not None
-    for i, child in enumerate(body):
-        if child.tag == "h1":
-            body.insert(i + 1, img)
-            break
+    body.insert(0, img)
+
+    ##
+    # Insert the title
+    ##
+
+    body.insert(0, _element_with_text(tag="h1", text=scenario.title))
+
+    ##
+    # Insert back button
+    ##
+
+    back_link = ET.Element("a")
+
+    back_url = (
+        pathlib.PurePosixPath(
+            *([".."] * len(scenario_path.parent.relative_to(scenarios_dir).parts))
+        )
+        / "ontology.html"
+    ).as_posix()
+
+    back_link.attrib["href"] = back_url
+    back_link.text = "Back to ontology"
+    body.insert(0, back_link)
 
     ##
     # Save
@@ -632,7 +705,10 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
             )
 
         scenario = rasaeco.model.Scenario(
-            identifier=identifier, title=meta["title"], volumetric=volumetric
+            identifier=identifier,
+            title=meta["title"],
+            volumetric=volumetric,
+            relative_path=path_map[identifier].relative_to(scenarios_dir),
         )
 
         scenarios.append(scenario)
@@ -657,10 +733,18 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
     _render_ontology(ontology=ontology, scenarios_dir=scenarios_dir, path_map=path_map)
 
     for scenario in scenarios:
-        _render_scenario(
+        pth = path_map[scenario.identifier]
+        render_errors = _render_scenario(
             scenario=scenario,
-            scenario_path=path_map[scenario.identifier],
+            ontology=ontology,
+            scenario_path=pth,
             scenarios_dir=scenarios_dir,
         )
+
+        for error in render_errors:
+            errors.append(f"When rendering {pth}: {error}")
+
+    if errors:
+        return errors
 
     return []
