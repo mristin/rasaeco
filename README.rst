@@ -61,7 +61,6 @@ your system.)
 Render continuously + automatic refresh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
 `pyrasaeco-render` can also start a demo server for you so that you do not have
 to manually re-load in the browser. You have to specify the port and the server
 will be automatically started:
@@ -83,3 +82,130 @@ Help
     pyrasaeco-render.exe -h
     pyrasaeco-render.exe once -h
     pyrasaeco-render.exe continuously -h
+
+Cheatsheet
+----------
+
+Directory Structure
+~~~~~~~~~~~~~~~~~~~
+Write documents in the following directory structure:
+
+.. code-block::
+
+    ontology/
+        some-scenario/
+            scenario.md
+        another-scenario/
+            scenario.md
+        yet-another-scenario/
+            scenario.md
+    ...
+
+Header
+~~~~~~
+Write a ``<rasaeco-meta>`` header at the beginning of a scenario.
+
+Here is an example:
+
+.. code-block::
+
+    <rasaeco-meta>
+    {
+        "identifier": "some_scenario",
+        "title": "Some Scenario",
+        "relations": [
+            { "target": "another_scenario", "nature": "is instance of" }
+            { "target": "yet_another_scenario", "nature": "refines" }
+        ],
+        "volumetric": [
+            {
+                "aspect_from": "as-planned", "aspect_to": "safety",
+                "phase_from": "construction", "phase_to": "construction",
+                "level_from": "site", "level_to": "site"
+            }
+        ]
+    }
+    </rasaeco-meta>
+
++-------------------+--------------------+---------------+
+| Aspects           | Phases             | Levels        |
++-------------------+--------------------+---------------+
+| * ``as-planned``  | * ``planning``     | * ``device``  |
+| * ``as-observed`` | * ``construction`` | * ``machine`` |
+| * ``divergence``  | * ``operation``    | * ``unit``    |
+| * ``scheduling``  | * ``renovation``   | * ``site``    |
+| * ``cost``        | * ``demolition``   | * ``company`` |
+| * ``safety``      |                    | * ``network`` |
+| * ``analytics``   |                    |               |
++-------------------+--------------------+---------------+
+
+Tags in the Scenario
+~~~~~~~~~~~~~~~~~~~~
+Tag text in markdown with XML tags.
+
+**Model**. To define a model, write a ``<model>`` tag:
+
+.. code-block::
+
+    <model name="plan/main">
+    This is the main model of the site plan covering the whole site.
+    It is updated on demand, as the plan changes.
+    </model>
+
+To reference a model, use ``<modelref>`` tag:
+
+.. code-block::
+
+    The possible placements for the reception platform should be computed based on
+    the <modelref name="observed/main" />.
+
+**Definition**. To introduce a definition, use ``<def>``:
+
+.. code-block::
+
+    <def name="receptionPlatforms">
+    Reception platforms to be mounted on the construction site
+    </def>
+
+If you want to write (pseudo)code in the definition, use ``````` (three backticks):
+
+.. code-block::
+
+    <def name="receptionPlatforms">
+
+    ```bim
+    receptionPlatformLabel = IfcLabel("ReceptionPlatform")
+
+    receptionPlatforms =
+        SELECT e
+        FROM
+            e is IfcBuildingElementType modeled in observed/main
+        WHERE
+            e.ElementType == receptionPlatformLabel
+    ```
+    </def>
+
+References to a definition are written using ``<ref>``:
+
+.. code-block::
+
+    The <ref name="receptionPlatforms" /> can not be appropriately fixed.
+
+**Marking phase and level**. Use ``<phase>`` and ``<level>`` to mark the phase in
+the building life cycle and hierarchy level of detail, respectively.
+
+.. code-block::
+
+    <phase name="planning">
+    During the planning phase, the <ref name="scaffolds" /> are wrongly planed.
+    </phase>
+    <phase name="construction">
+        The <ref name="receptionPlatforms" /> can not be appropriately fixed
+        on <level name="site">the site</level>.
+    </phase>
+
+Further Examples
+~~~~~~~~~~~~~~~~
+Please see
+`Sample scenarios <https://github.com/mristin/rasaeco/tree/main/sample_scenarios>`_
+for further examples.
