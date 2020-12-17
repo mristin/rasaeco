@@ -1,0 +1,1 @@
+In file <tmp dir>\scenario.md and cubelet 1: Invalid aspect range: Unexpected end of an aspect range: 'totally invalid'; possible aspects are: ['as-planned', 'as-observed', 'divergence', 'scheduling', 'cost', 'safety', 'analytics']

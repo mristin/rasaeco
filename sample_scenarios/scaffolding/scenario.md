@@ -22,30 +22,24 @@ the reception platform. Workers not authorized to make any changes.
 
 ## Models
 
-<model name="plan/main">
+### plan/main
 
 This is the main model of the site plan covering the whole site.
 It is updated on demand, as the plan changes.
 
-</model>
-
-<model name="observed/main">
+### observed/main
 
 This is the main model representing the digital twin of the building.
 It is updated daily.
 
-</model>
-
-<model name="staff">
+### staff
 
 This is the model capturing the information about the site personnel.
 It is updated in real time.
 
-</model>
-
 ## Definitions
 
-<def name="scaffolds">
+### scaffolds
 
 ```bim
 scaffoldLabel = IfcLabel("Scaffold")
@@ -58,9 +52,7 @@ scaffolds =
         e.ElementType == scaffoldLabel
 ```
 
-</def>
-
-<def name="receptionPlatforms">
+### receptionPlatforms
 
 ```bim
 receptionPlatformLabel = IfcLabel("ReceptionPlatform")
@@ -72,9 +64,22 @@ receptionPlatforms =
     WHERE
         e.ElementType == receptionPlatformLabel
 ```
-</def>
 
-<def name="Workers">
+### misplacedScaffolds
+
+The scaffolds with incorrectly planned height:
+
+```bim
+misplacedScaffolds = 
+    SELECT s
+    FROM
+        rp in receptionPlatforms
+        s in scaffolds
+    WHERE
+        abs(s.NominalHeight - rp.NominalHeight) < 1 meter 
+```
+
+### workers
 
 ```bin
 workerLabel = IfcLabel("Worker")
@@ -86,8 +91,6 @@ workers =
     WHERE
         a.Category == workerLabel
 ```
-
-</def>
 
 
 ## Scenario
@@ -103,7 +106,7 @@ and the height of the scaffolds.
 The possible placements for the reception platform should be computed based on
 the <modelref name="observed/main" />.
 
-### As-planned *vs* As-observed
+### Divergence
 
 <phase name="planning">
     During the planning phase, the <ref name="scaffolds" /> are wrongly planed.
@@ -112,22 +115,6 @@ the <modelref name="observed/main" />.
     The <ref name="receptionPlatforms" /> can not be appropriately fixed 
     on <level name="site">the site</level>.
 </phase>
-
-<def name="misplacedScaffolds">
-
-Formally, we select the scaffolds with incorrectly planned height:
-
-```bim
-misplacedScaffolds = 
-    SELECT s
-    FROM
-        rp in receptionPlatforms
-        s in scaffolds
-    WHERE
-        abs(s.NominalHeight - rp.NominalHeight) < 1 meter 
-```
-
-</def>
 
 ### Analytics
 

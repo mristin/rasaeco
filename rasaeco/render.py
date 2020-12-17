@@ -3,14 +3,16 @@ import dataclasses
 import itertools
 import json
 import pathlib
+import re
 import textwrap
 import uuid
 import xml.etree.ElementTree as ET
-from typing import List, MutableMapping, Mapping, TypedDict
+import xml.sax.saxutils
+from typing import List, MutableMapping, Mapping, TypedDict, Set, Optional
 
 import PIL
 import icontract
-import marko
+import markdown
 import matplotlib
 
 matplotlib.use("Agg")
@@ -76,8 +78,8 @@ def _render_ontology(
 
     try:
         pth.write_text(ontology_html, encoding="utf-8")
-    except Exception as error:
-        return [f"Failed to write the ontology to {pth}: {error}"]
+    except Exception as exception:
+        return [f"Failed to write the ontology to {pth}: {exception}"]
 
     return []
 
@@ -133,7 +135,7 @@ def _render_volumetric_plot(
         ax.set_xticklabels([""] * (len(rasaeco.model.PHASES) + 1))
 
         for i, phase in enumerate(rasaeco.model.PHASES):
-            ax.text(i + 0.5, -3.5, 0, phase, color="green", fontsize=8, zdir="y")
+            ax.text(i + 0.5, -4.2, 0, phase, color="green", fontsize=8, zdir="y")
 
         ax.set_yticks(list(range(len(rasaeco.model.LEVELS) + 1)))
         ax.set_yticklabels([""] * (len(rasaeco.model.LEVELS) + 1))
@@ -158,15 +160,15 @@ def _render_volumetric_plot(
 
         try:
             plt.savefig(str(plot_path))
-        except Exception as error:
-            return [f"Failed to save the volumetric plot to: {plot_path}"]
+        except Exception as exception:
+            return [f"Failed to save the volumetric plot to {plot_path}: {exception}"]
     finally:
         plt.close(fig)
 
     # Crop manually
     with PIL.Image.open(plot_path) as image:
         # left, upper, right, lower
-        image_crop = image.crop((141, 86, 567, 446))
+        image_crop = image.crop((139, 86, 567, 450))
         image_crop.save(plot_path)
 
     return []
@@ -179,6 +181,81 @@ def _element_with_text(tag: str, text: str) -> ET.Element:
     return result
 
 
+def _element_to_str(element: ET.Element) -> str:
+    """Dump the element to a string."""
+    attribs_as_str = " ".join(
+        f"{key}={xml.sax.saxutils.quoteattr(value)}"
+        for key, value in element.attrib.items()
+    )
+    if attribs_as_str:
+        return f"<{element.tag} {attribs_as_str}>"
+    else:
+        return f"<{element.tag}>"
+
+
+def _verify_all_tags_closed(xml_text: str) -> Optional[str]:
+    """
+    Verify that all the tags were properly closed in the XML given as text.
+
+    Return error if any.
+    """
+    parser = ET.XMLPullParser(["start", "end"])
+    parser.feed(xml_text.encode("utf-8"))
+
+    open_tags = []  # type: List[ET.Element]
+
+    iter = parser.read_events()
+    while True:
+        try:
+            event, element = next(iter)
+        except StopIteration:
+            break
+        except ET.ParseError as exception:
+            lineno, _ = exception.position
+            line = xml_text.splitlines()[lineno - 1]
+
+            if exception.msg.startswith("mismatched tag:"):
+                return (
+                    f"{exception.msg}; the line was: {line!r}, "
+                    f"the open tag(s) up to that point: {list(map(_element_to_str, open_tags))}. "
+                    f"Did you maybe forget to close the tag {_element_to_str(open_tags[-1])}?"
+                )
+            else:
+                return f"{exception.msg}; the line was: {line!r}"
+
+        if event == "start":
+            open_tags.append(element)
+        elif event == "end":
+            if len(open_tags) == 0:
+                return f"Unexpected closing tag {_element_to_str(element)} and no open tags"
+
+            elif open_tags[-1].tag != element.tag:
+                return (
+                    f"Unexpected closing tag {_element_to_str(element)} "
+                    f"as the last opened tag was: {_element_to_str(open_tags[-1])}"
+                )
+
+            elif open_tags[-1].tag == element.tag:
+                open_tags.pop()
+
+            else:
+                raise AssertionError(
+                    f"Unhandled case: "
+                    f"element.tag is {_element_to_str(element)}, event: {event}, "
+                    f"open tags: {list(map(_element_to_str, open_tags))}"
+                )
+        else:
+            raise AssertionError(f"Unhandled event: {event}")
+
+    return None
+
+
+@dataclasses.dataclass
+class _Token:
+    identifier: str
+    text: str
+
+
 @icontract.require(lambda scenario_path: scenario_path.suffix == ".md")
 def _render_scenario(
     scenario: rasaeco.model.Scenario,
@@ -189,88 +266,168 @@ def _render_scenario(
     """Render a single scenario as HTML."""
     try:
         text = scenario_path.read_text(encoding="utf-8")
-    except Exception as error:
-        return [f"Failed to read the scenario {scenario_path}: {error}"]
-
-    try:
-        document = marko.convert(text)
-    except Exception as error:
-        return [
-            f"Failed to convert the scenario markdown {scenario_path} to HTML: {error}"
-        ]
-
-    html_text = f"<html>\n<body>\n{document}\n</body>\n</html>"
-
-    root = ET.fromstring(html_text)
+    except Exception as exception:
+        return [f"Failed to read the scenario {scenario_path}: {exception}"]
 
     ##
     # Remove <rasaeco-meta>
     ##
 
+    meta_range, errors = rasaeco.meta.find_meta(text=text)
+    assert len(errors) == 0, errors
+    assert meta_range is not None
+
+    text = text[: meta_range.block_start] + text[meta_range.block_end + 1 :]
+
+    ##
+    # Convert to HTML
+    ##
+
+    try:
+        document = markdown.markdown(text)
+    except Exception as exception:
+        return [
+            f"Failed to convert the scenario markdown {scenario_path} to HTML: {exception}"
+        ]
+
+    ##
+    # Parse as HTML
+    ##
+
+    html_text = f"<html>\n<body>\n{document}\n</body>\n</html>"
+
+    error = _verify_all_tags_closed(xml_text=html_text)
+    if error:
+        return [f"Failed to parse the scenario markdown converted to HTML: {error}"]
+
+    try:
+        root = ET.fromstring(html_text)
+    except ET.ParseError as exception:
+        lineno, _ = exception.position
+        line = html_text.splitlines()[lineno - 1]
+
+        return [
+            f"Failed to parse the scenario markdown "
+            f"converted to HTML: {exception}; the line was: {json.dumps(line)}"
+        ]
+
+    ##
+    # Transform
+    ##
+
     body = root.find("body")
     assert body is not None
 
-    meta = body.find("rasaeco-meta")
-    assert meta is not None
-    body.remove(meta)
+    ##
+    # Add anchors for models
+    ##
+
+    model_set = set()  # type: Set[str]
+    in_models = False
+
+    for element in body:
+        if element.tag == "h2":
+            if in_models:
+                in_models = False
+            else:
+                if (
+                    element.text is not None
+                    and element.text.strip().lower() == "models"
+                ):
+                    in_models = True
+
+        elif in_models and element.tag == "h3":
+            name = element.text.strip() if element.text is not None else ""
+            model_set.add(name)
+
+            anchor_id = f"model-{name}"
+
+            link_el = ET.Element(
+                "a", attrib={"href": f"#{anchor_id}", "class": "anchor"}
+            )
+            link_el.append(ET.Element("a", attrib={"id": anchor_id}))
+            link_el.text = "🔗"
+            link_el.tail = element.text
+
+            element.insert(0, link_el)
+            element.text = ""
+        else:
+            pass
 
     ##
-    # Validate that all <def>, <ref>, <phase> and <level> have the name attribute
+    # Add anchors for defs
+    ##
+
+    def_set = set()  # type: Set[str]
+    in_defs = False
+
+    for element in body:
+        if element.tag == "h2":
+            if in_defs:
+                in_defs = False
+            else:
+                if (
+                    element.text is not None
+                    and element.text.strip().lower() == "definitions"
+                ):
+                    in_defs = True
+
+        elif in_defs and element.tag == "h3":
+            name = element.text.strip() if element.text is not None else ""
+            def_set.add(name)
+
+            anchor_id = f"def-{name}"
+
+            link_el = ET.Element(
+                "a", attrib={"href": f"#{anchor_id}", "class": "anchor"}
+            )
+            link_el.append(ET.Element("a", attrib={"id": anchor_id}))
+            link_el.text = "🔗"
+            link_el.tail = element.text
+
+            element.insert(0, link_el)
+            element.text = ""
+        else:
+            pass
+
+    ##
+    # Validate that all the tags have the "name" attribute which need to have one
     ##
 
     for element in itertools.chain(
-        root.iter("def"),
         root.iter("ref"),
-        root.iter("model"),
         root.iter("modelref"),
         root.iter("phase"),
         root.iter("level"),
     ):
         if "name" not in element.attrib:
-            return [f"A <{element.tag}> lacks the `name` attribute in: {scenario_path}"]
+            errors.append(
+                f"A <{element.tag}> lacks the `name` attribute in: {scenario_path}"
+            )
 
-    # Replace <def> tags with proper HTML
-    for element in root.iter("def"):
-        anchor_name = element.attrib.get("name")
+    if errors:
+        return errors
 
-        # Transform
-        element.tag = "div"
-        element.attrib = {"class": "definition"}
+    ##
+    # Validate that all modelrefs have the model defined
+    ##
 
-        anchor_id = f"def-{anchor_name}"
+    for element in root.iter("modelref"):
+        modelref = element.attrib["name"]
+        if modelref not in model_set:
+            errors.append(f"The modelref is invalid: {modelref!r}")
 
-        link_el = ET.Element("a", attrib={"href": f"#{anchor_id}", "class": "anchor"})
-        link_el.append(ET.Element("a", attrib={"id": anchor_id}))
-        link_el.text = "🔗"
-        link_el.tail = anchor_name
+    ##
+    # Validate that all refs have the def defined
+    ##
 
-        heading_el = ET.Element("h3")
-        heading_el.insert(0, link_el)
+    for element in root.iter("ref"):
+        ref = element.attrib["name"]
+        if ref not in def_set:
+            errors.append(f"The ref is invalid: {ref!r}")
 
-        element.insert(0, heading_el)
-
-    # Replace <model> tags with proper HTML
-    for element in root.iter("model"):
-        anchor_name = element.attrib.get("name")
-
-        # Transform
-        element.tag = "div"
-        element.attrib = {"class": "model"}
-
-        heading_el = ET.Element("h3")
-        heading_el.text = anchor_name
-
-        anchor_id = f"model-{anchor_name}"
-
-        link_el = ET.Element("a", attrib={"href": f"#{anchor_id}", "class": "anchor"})
-        link_el.append(ET.Element("a", attrib={"id": anchor_id}))
-        link_el.text = "🔗"
-        link_el.tail = anchor_name
-
-        heading_el = ET.Element("h3")
-        heading_el.insert(0, link_el)
-
-        element.insert(0, heading_el)
+    if errors:
+        return errors
 
     ##
     # Replace <ref> tags with proper HTML
@@ -422,7 +579,11 @@ def _render_scenario(
             padding: 1%;
             border: 1px solid black;
         }
-
+        
+        a {
+            text-decoration: none;
+        }
+        
         a.anchor {
             text-decoration: none;
             font-size: x-small;
@@ -560,8 +721,8 @@ def _render_scenario(
 
     try:
         target_pth.write_bytes(ET.tostring(root, encoding="utf-8"))
-    except Exception as error:
-        return [f"Failed to write generated HTML code to {target_pth}: {error}"]
+    except Exception as exception:
+        return [f"Failed to write generated HTML code to {target_pth}: {exception}"]
 
     return []
 
@@ -599,74 +760,31 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
             # Verify aspect range
             ##
 
-            if cubelet["aspect_from"] not in rasaeco.model.ASPECT_SET:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid start of an aspect range: {cubelet['aspect_from']}"
-                )
-
-            if cubelet["aspect_to"] not in rasaeco.model.ASPECT_SET:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid end of an aspect range: {cubelet['aspect_to']}"
-                )
-
-            aspect_range_error = rasaeco.model.verify_aspect_range(
-                cubelet["aspect_from"], cubelet["aspect_to"]
+            range_error = rasaeco.model.verify_aspect_range(
+                first=cubelet["aspect_from"], last=cubelet["aspect_to"]
             )
-            if aspect_range_error:
+
+            if range_error:
                 errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid aspect range: {aspect_range_error}"
+                    f"In file {pth} and cubelet {i + 1}: Invalid aspect range: {range_error}"
                 )
 
-            ##
-            # Verify phase range
-            ##
-
-            if cubelet["phase_from"] not in rasaeco.model.PHASE_SET:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid start of a phase range: {cubelet['phase_from']}"
-                )
-
-            if cubelet["phase_to"] not in rasaeco.model.PHASE_SET:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid end of a phase range: {cubelet['phase_to']}"
-                )
-
-            phase_range_error = rasaeco.model.verify_phase_range(
-                cubelet["phase_from"], cubelet["phase_to"]
+            range_error = rasaeco.model.verify_phase_range(
+                first=cubelet["phase_from"], last=cubelet["phase_to"]
             )
-            if phase_range_error:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid phase range: {phase_range_error}"
-                )
-            ##
-            # Verify level range
-            ##
 
-            if cubelet["level_from"] not in rasaeco.model.LEVEL_SET:
+            if range_error:
                 errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid start of a level range: {cubelet['level_from']}"
+                    f"In file {pth} and cubelet {i + 1}: Invalid phase range: {range_error}"
                 )
 
-            if cubelet["level_to"] not in rasaeco.model.LEVEL_SET:
-                errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid end of a level range: {cubelet['level_to']}"
-                )
-
-            level_range_error = rasaeco.model.verify_level_range(
-                cubelet["level_from"], cubelet["level_to"]
+            range_error = rasaeco.model.verify_level_range(
+                first=cubelet["level_from"], last=cubelet["level_to"]
             )
-            if level_range_error:
+
+            if range_error:
                 errors.append(
-                    f"In file {pth} and cubelet {i + 1}: "
-                    f"Invalid level range: {level_range_error}"
+                    f"In file {pth} and cubelet {i + 1}: Invalid level range: {range_error}"
                 )
 
         meta_map[meta["identifier"]] = meta
@@ -679,8 +797,8 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
             if relate_to["target"] not in scenario_id_set:
                 errors.append(
                     f"In file {path_map[identifier]}: "
-                    f"The relation f{relate_to['nature']} is invalid as the identifier "
-                    f"of the target scenario can not be found: {relate_to['target']}"
+                    f"The relation {relate_to['nature']!r} is invalid as the identifier "
+                    f"of the target scenario can not be found: {relate_to['target']!r}"
                 )
 
     if errors:
