@@ -139,53 +139,46 @@ Here is an example:
 | * ``analytics``   |                    |               |
 +-------------------+--------------------+---------------+
 
+Models
+~~~~~~
+Models are defined as headings 3 (`### plan/some_model`) beneath the heading 2 `## Models`.
+
+Definitions
+~~~~~~~~~~~
+Definitions are defined as headings 3 (`### some_definition`) beneath
+the heading 2 `## Definitions`.
+
+If you want to write (pseudo)code in the definition, use ``````` (three backticks):
+
+.. code-block::
+
+    ### reception_platforms
+
+    ```bim
+    reception_platform_label = IfcLabel("ReceptionPlatform")
+
+    reception_platforms =
+        SELECT e
+        FROM
+            e is IfcBuildingElementType modeled in observed/main
+        WHERE
+            e.ElementType == reception_platform_label
+    ```
+    </def>
+
+
 Tags in the Scenario
 ~~~~~~~~~~~~~~~~~~~~
 Tag text in markdown with XML tags.
 
-**Model**. To define a model, write a ``<model>`` tag:
-
-.. code-block::
-
-    <model name="plan/main">
-    This is the main model of the site plan covering the whole site.
-    It is updated on demand, as the plan changes.
-    </model>
-
-To reference a model, use ``<modelref>`` tag:
+**Model references** are written using ``<modelref>`` tag:
 
 .. code-block::
 
     The possible placements for the reception platform should be computed based on
     the <modelref name="observed/main" />.
 
-**Definition**. To introduce a definition, use ``<def>``:
-
-.. code-block::
-
-    <def name="receptionPlatforms">
-    Reception platforms to be mounted on the construction site
-    </def>
-
-If you want to write (pseudo)code in the definition, use ``````` (three backticks):
-
-.. code-block::
-
-    <def name="receptionPlatforms">
-
-    ```bim
-    receptionPlatformLabel = IfcLabel("ReceptionPlatform")
-
-    receptionPlatforms =
-        SELECT e
-        FROM
-            e is IfcBuildingElementType modeled in observed/main
-        WHERE
-            e.ElementType == receptionPlatformLabel
-    ```
-    </def>
-
-References to a definition are written using ``<ref>``:
+**Definition references** are written using ``<ref>`` tag:
 
 .. code-block::
 
@@ -196,13 +189,11 @@ the building life cycle and hierarchy level of detail, respectively.
 
 .. code-block::
 
-    <phase name="planning">
-    During the planning phase, the <ref name="scaffolds" /> are wrongly planed.
-    </phase>
-    <phase name="construction">
-        The <ref name="receptionPlatforms" /> can not be appropriately fixed
-        on <level name="site">the site</level>.
-    </phase>
+    <phase name="planning">During the planning phase, the <ref name="scaffolds" />
+    are wrongly planed.</phase>
+
+    <phase name="construction">The <ref name="receptionPlatforms" /> can not be appropriately fixed
+    on <level name="site">the site</level>.</phase>
 
 Further Examples
 ~~~~~~~~~~~~~~~~

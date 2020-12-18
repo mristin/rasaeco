@@ -4,11 +4,10 @@ import os
 import pathlib
 import queue
 import shutil
-import sys
+import tempfile
 import threading
 import time
 import unittest
-import tempfile
 
 import rasaeco.pyrasaeco_render
 
@@ -17,7 +16,7 @@ class TestOnSamples(unittest.TestCase):
     def test_render_once(self) -> None:
         this_dir = pathlib.Path(os.path.realpath(__file__)).parent
 
-        scenarios_dir = this_dir.parent / "sample_scenarios"
+        scenarios_dir = this_dir.parent.parent / "sample_scenarios"
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_scenarios_dir = os.path.join(tmp_dir, "sample_scenarios")
@@ -40,7 +39,7 @@ class TestOnSamples(unittest.TestCase):
     def test_continuously(self) -> None:
         this_dir = pathlib.Path(os.path.realpath(__file__)).parent
 
-        scenarios_dir = this_dir.parent / "sample_scenarios"
+        scenarios_dir = this_dir.parent.parent / "sample_scenarios"
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_scenarios_dir = pathlib.Path(os.path.join(tmp_dir, "sample_scenarios"))

@@ -16,14 +16,18 @@ ASPECTS = [
 ASPECT_SET = set(ASPECTS)
 
 
-@icontract.require(lambda first: first in ASPECT_SET)
-@icontract.require(lambda last: last in ASPECT_SET)
 def verify_aspect_range(first: str, last: str) -> Optional[str]:
     """
     Verify that the aspect range is correct.
 
     Return error if any.
     """
+    if first not in ASPECT_SET:
+        return f"Unexpected start of an aspect range: {first!r}; possible aspects are: {ASPECTS}"
+
+    if last not in ASPECT_SET:
+        return f"Unexpected end of an aspect range: {last!r}; possible aspects are: {ASPECTS}"
+
     i = ASPECTS.index(first)
     j = ASPECTS.index(last)
     if i > j:
@@ -35,8 +39,6 @@ def verify_aspect_range(first: str, last: str) -> Optional[str]:
 class AspectRange:
     """Represent a range over aspect in the scenario space."""
 
-    @icontract.require(lambda first: first in ASPECT_SET)
-    @icontract.require(lambda last: last in ASPECT_SET)
     @icontract.require(lambda first, last: verify_aspect_range(first, last) is None)
     def __init__(self, first: str, last: str) -> None:
         """Initialize with the given values."""
@@ -48,14 +50,20 @@ PHASES = ["planning", "construction", "operation", "renovation", "demolition"]
 PHASE_SET = set(PHASES)
 
 
-@icontract.require(lambda first: first in PHASE_SET)
-@icontract.require(lambda last: last in PHASE_SET)
 def verify_phase_range(first: str, last: str) -> Optional[str]:
     """
     Verify that the phase range is correct.
 
     Return error if any.
     """
+    if first not in PHASE_SET:
+        return f"Unexpected start of a phase range: {first!r}; possible phases are: {PHASES}"
+
+    if last not in PHASE_SET:
+        return (
+            f"Unexpected end of a phase range: {last!r}; possible phases are: {PHASES}"
+        )
+
     i = PHASES.index(first)
     j = PHASES.index(last)
     if i > j:
@@ -67,8 +75,6 @@ def verify_phase_range(first: str, last: str) -> Optional[str]:
 class PhaseRange:
     """Represent a range over phase in the scenario space."""
 
-    @icontract.require(lambda first: first in PHASE_SET)
-    @icontract.require(lambda last: last in PHASE_SET)
     @icontract.require(lambda first, last: verify_phase_range(first, last) is None)
     def __init__(self, first: str, last: str) -> None:
         """Initialize with the given values."""
@@ -76,18 +82,24 @@ class PhaseRange:
         self.last = last
 
 
-LEVELS = ["device", "machine", "unit", "site", "company", "network"]
+LEVELS = ["device", "machine", "zone", "site", "office", "company", "network"]
 LEVEL_SET = set(LEVELS)
 
 
-@icontract.require(lambda first: first in LEVEL_SET)
-@icontract.require(lambda last: last in LEVEL_SET)
 def verify_level_range(first: str, last: str) -> Optional[str]:
     """
     Verify that the level range is correct.
 
     Return error if any.
     """
+    if first not in LEVEL_SET:
+        return f"Unexpected start of a level range: {first!r}; possible levels are: {LEVELS}"
+
+    if last not in LEVEL_SET:
+        return (
+            f"Unexpected end of a level range: {last!r}; possible levels are: {LEVELS}"
+        )
+
     i = LEVELS.index(first)
     j = LEVELS.index(last)
     if i > j:
@@ -99,8 +111,6 @@ def verify_level_range(first: str, last: str) -> Optional[str]:
 class LevelRange:
     """Represent a range over level in the scenario space."""
 
-    @icontract.require(lambda first: first in LEVEL_SET)
-    @icontract.require(lambda last: last in LEVEL_SET)
     @icontract.require(lambda first, last: verify_level_range(first, last) is None)
     def __init__(self, first: str, last: str) -> None:
         """Initialize with the given values."""
