@@ -12,7 +12,7 @@ from typing import List, MutableMapping, Mapping, TypedDict, Set, Optional
 
 import PIL
 import icontract
-import markdown
+import marko
 import matplotlib
 
 matplotlib.use("Agg")
@@ -284,7 +284,7 @@ def _render_scenario(
     ##
 
     try:
-        document = markdown.markdown(text)
+        document = marko.convert(text)
     except Exception as exception:
         return [
             f"Failed to convert the scenario markdown {scenario_path} to HTML: {exception}"
