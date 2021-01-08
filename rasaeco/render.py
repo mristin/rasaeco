@@ -251,105 +251,6 @@ def _verify_all_tags_closed(xml_text: str) -> Optional[str]:
     return None
 
 
-class _TagType(enum.Enum):
-    OPENING = "opening"
-    CLOSING = "closing"
-    SELF_CLOSING = "self-closing"
-
-
-@dataclasses.dataclass
-class _Tag:
-    """Represent a mark-up tag in the text."""
-
-    start: int
-    end: int
-    type: _TagType
-
-
-_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
-_TAG_CLOSING_RE = re.compile(r"^<\s*/")
-_TAG_SELF_CLOSING_RE = re.compile(r"^.*/\s*>$")
-
-
-def _find_tags(text: str) -> List[_Tag]:
-    """
-    Find the tags in the text.
-
-    Return (tags, errors if any)
-    """
-    tags = []  # type: List[_Tag]
-
-    for mtch in _TAG_RE.finditer(text):
-        tag_text = mtch.group(0)
-
-        if _TAG_SELF_CLOSING_RE.match(tag_text):
-            tag = _Tag(start=mtch.start(), end=mtch.end(), type=_TagType.SELF_CLOSING)
-        elif _TAG_CLOSING_RE.match(tag_text):
-            tag = _Tag(start=mtch.start(), end=mtch.end(), type=_TagType.CLOSING)
-        else:
-            tag = _Tag(start=mtch.start(), end=mtch.end(), type=_TagType.OPENING)
-
-        tags.append(tag)
-
-    return tags
-
-
-_NEWLINES_RE = re.compile(r"^[\n\r]+", flags=re.MULTILINE)
-
-
-def _trim_newlines_around_tags(text: str) -> str:
-    """Trim leading and trailing newlines around the mark-up tags."""
-    tags = _find_tags(text=text)
-
-    # Mark the trailing new-lines after openings and leading new-lines before closings
-    # for deletion as a list of (start, end)
-    marks = []  # type: List[Tuple[int, int]]
-
-    for tag in (tag for tag in tags if tag.type == _TagType.OPENING):
-        start = tag.end
-        end = tag.end
-        for i in range(tag.end, len(text)):
-            if text[i] in ["\n", "\r"]:
-                end = i + 1
-            else:
-                break
-
-        if start != end:
-            marks.append((start, end))
-
-    for tag in (tag for tag in tags if tag.type == _TagType.CLOSING):
-        end = tag.start
-        start = tag.start
-
-        for i in range(tag.start - 1, -1, -1):
-            if text[i] in ["\n", "\r"]:
-                start = i
-            else:
-                break
-
-        if start != end:
-            marks.append((start, end))
-
-    if len(marks) == 0:
-        return text
-
-    parts = []  # type: List[str]
-
-    previous_end = None  # type: Optional[int]
-    for start, end in marks:
-        if previous_end is None:
-            parts.append(text[:start])
-        else:
-            parts.append(text[previous_end:start])
-
-        previous_end = end
-
-    _, last_end = marks[-1]
-    parts.append(text[last_end:])
-
-    return "".join(parts)
-
-
 @icontract.require(lambda scenario_path: scenario_path.suffix == ".md")
 def _render_scenario(
     scenario: rasaeco.model.Scenario,
@@ -372,11 +273,6 @@ def _render_scenario(
     assert meta_range is not None
 
     text = text[: meta_range.block_start] + text[meta_range.block_end + 1 :]
-
-    ##
-    # Trim new-lines around tags to avoid unnecessary <p> elements
-    ##
-    text = _trim_newlines_around_tags(text=text)
 
     ##
     # Convert to HTML
@@ -418,82 +314,12 @@ def _render_scenario(
     assert body is not None
 
     ##
-    # Add anchors for models
-    ##
-
-    model_set = set()  # type: Set[str]
-    in_models = False
-
-    for element in body:
-        if element.tag == "h2":
-            if in_models:
-                in_models = False
-            else:
-                if (
-                    element.text is not None
-                    and element.text.strip().lower() == "models"
-                ):
-                    in_models = True
-
-        elif in_models and element.tag == "h3":
-            name = element.text.strip() if element.text is not None else ""
-            model_set.add(name)
-
-            anchor_id = f"model-{name}"
-
-            link_el = ET.Element(
-                "a", attrib={"href": f"#{anchor_id}", "class": "anchor"}
-            )
-            link_el.append(ET.Element("a", attrib={"id": anchor_id}))
-            link_el.text = "🔗"
-            link_el.tail = element.text
-
-            element.insert(0, link_el)
-            element.text = ""
-        else:
-            pass
-
-    ##
-    # Add anchors for defs
-    ##
-
-    def_set = set()  # type: Set[str]
-    in_defs = False
-
-    for element in body:
-        if element.tag == "h2":
-            if in_defs:
-                in_defs = False
-            else:
-                if (
-                    element.text is not None
-                    and element.text.strip().lower() == "definitions"
-                ):
-                    in_defs = True
-
-        elif in_defs and element.tag == "h3":
-            name = element.text.strip() if element.text is not None else ""
-            def_set.add(name)
-
-            anchor_id = f"def-{name}"
-
-            link_el = ET.Element(
-                "a", attrib={"href": f"#{anchor_id}", "class": "anchor"}
-            )
-            link_el.append(ET.Element("a", attrib={"id": anchor_id}))
-            link_el.text = "🔗"
-            link_el.tail = element.text
-
-            element.insert(0, link_el)
-            element.text = ""
-        else:
-            pass
-
-    ##
     # Validate that all the tags have the "name" attribute which need to have one
     ##
 
     for element in itertools.chain(
+        root.iter("model"),
+        root.iter("def"),
         root.iter("ref"),
         root.iter("modelref"),
         root.iter("phase"),
@@ -506,6 +332,62 @@ def _render_scenario(
 
     if errors:
         return errors
+
+    ##
+    # Convert <model> tags into <a> anchors and <h3> tags
+    ##
+
+    model_set = set()  # type: Set[str]
+    for element in root.iter("model"):
+        name = element.attrib["name"]
+        model_set.add(name)
+
+        element.tag = "div"
+        element.attrib = {"class": "model"}
+
+        header_el = ET.Element("h3")
+
+        anchor_el = ET.Element("a")
+        anchor_el.attrib = {"name": f"model-{name}"}
+        anchor_el.text = " "
+        header_el.insert(0, anchor_el)
+
+        link_el = ET.Element("a")
+        link_el.attrib = {"href": f"#model-{name}", "class": "anchor"}
+        link_el.text = "🔗"
+        link_el.tail = name
+        header_el.insert(0, link_el)
+        header_el.tail = "\n"
+
+        element.insert(0, header_el)
+
+    ##
+    # Convert <def> tags into <a> anchors and <h3> tags
+    ##
+
+    def_set = set()  # type: Set[str]
+    for element in root.iter("def"):
+        name = element.attrib["name"]
+        def_set.add(name)
+
+        element.tag = "div"
+        element.attrib = {"class": "def"}
+
+        header_el = ET.Element("h3")
+
+        anchor_el = ET.Element("a")
+        anchor_el.attrib = {"name": f"def-{name}"}
+        anchor_el.text = " "
+        header_el.insert(0, anchor_el)
+
+        link_el = ET.Element("a")
+        link_el.attrib = {"href": f"#def-{name}", "class": "anchor"}
+        link_el.text = "🔗"
+        link_el.tail = name
+        header_el.insert(0, link_el)
+        header_el.tail = "\n"
+
+        element.insert(0, header_el)
 
     ##
     # Validate that all modelrefs have the model defined

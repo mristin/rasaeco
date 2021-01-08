@@ -22,24 +22,30 @@ the reception platform. Workers not authorized to make any changes.
 
 ## Models
 
-### plan/main
+<model name="plan/main">
 
 This is the main model of the site plan covering the whole site.
 It is updated on demand, as the plan changes.
 
-### observed/main
+</model>
+
+<model name="observed/main">
 
 This is the main model representing the digital twin of the building.
 It is updated daily.
 
-### staff
+</model>
+
+<model name="staff">
 
 This is the model capturing the information about the site personnel.
 It is updated in real time.
 
+</model>
+
 ## Definitions
 
-### scaffolds
+<def name="scaffolds">
 
 ```bim
 scaffoldLabel = IfcLabel("Scaffold")
@@ -52,7 +58,9 @@ scaffolds =
         e.ElementType == scaffoldLabel
 ```
 
-### receptionPlatforms
+</def>
+
+<def name="receptionPlatforms">
 
 ```bim
 receptionPlatformLabel = IfcLabel("ReceptionPlatform")
@@ -65,7 +73,9 @@ receptionPlatforms =
         e.ElementType == receptionPlatformLabel
 ```
 
-### misplacedScaffolds
+</def>
+
+<def name="misplacedScaffolds">
 
 The scaffolds with incorrectly planned height:
 
@@ -79,7 +89,9 @@ misplacedScaffolds =
         abs(s.NominalHeight - rp.NominalHeight) < 1 meter 
 ```
 
-### workers
+</def>
+
+<def name="workers">
 
 ```bin
 workerLabel = IfcLabel("Worker")
@@ -91,6 +103,8 @@ workers =
     WHERE
         a.Category == workerLabel
 ```
+
+</def>
 
 
 ## Scenario

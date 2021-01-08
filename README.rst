@@ -139,20 +139,21 @@ Here is an example:
 | * ``analytics``   |                    |               |
 +-------------------+--------------------+---------------+
 
-Models
-~~~~~~
-Models are defined as headings 3 (`### plan/some_model`) beneath the heading 2 `## Models`.
+Tags in the Scenario
+~~~~~~~~~~~~~~~~~~~~
+Tag text in markdown with XML tags.
 
-Definitions
-~~~~~~~~~~~
-Definitions are defined as headings 3 (`### some_definition`) beneath
-the heading 2 `## Definitions`.
+**Models**.
+Models are defined as ``<model name="...">...</model>``.
+
+**Definitions**.
+Definitions are defined ``<def name="...">...</def>``.
 
 If you want to write (pseudo)code in the definition, use ``````` (three backticks):
 
 .. code-block::
 
-    ### reception_platforms
+    <def name="reception_platforms">
 
     ```bim
     reception_platform_label = IfcLabel("ReceptionPlatform")
@@ -164,12 +165,9 @@ If you want to write (pseudo)code in the definition, use ``````` (three backtick
         WHERE
             e.ElementType == reception_platform_label
     ```
+
     </def>
 
-
-Tags in the Scenario
-~~~~~~~~~~~~~~~~~~~~
-Tag text in markdown with XML tags.
 
 **Model references** are written using ``<modelref>`` tag:
 
@@ -200,3 +198,38 @@ Further Examples
 Please see
 `Sample scenarios <https://github.com/mristin/rasaeco/tree/main/sample_scenarios>`_
 for further examples.
+
+Known Issues
+------------
+Markdown can be sometimes unintuitive when mixed with the mark-up (XML) tags. You have to be careful
+when inserting new lines as they are going to be automatically converted by
+`marko library <https://pypi.org/project/marko/>`_ to ``<p>``.
+
+This can result in invalid HTML. For example, make sure you do not write:
+
+.. code-block::
+
+    <model name="something">first line
+
+    second line</model>
+
+as this results in invalid HTML:
+
+.. code-block::
+
+    <p><model name="something">first line</p>
+    <p>second line</model></p>
+
+Note the inverted ``</p>`` and ``</model>``. This should be correctly written as:
+
+.. code-block::
+
+    <model name="something">
+
+    first line
+
+    second line
+
+    </model>
+
+(Note the empty lines after the opening tag and before the closing tag, respectively.)
