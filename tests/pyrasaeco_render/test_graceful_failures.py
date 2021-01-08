@@ -20,7 +20,10 @@ class TestOnFailureCases(unittest.TestCase):
 
         for pth in sorted(failure_cases_dir.glob("**/scenario.md")):
             with tempfile.TemporaryDirectory() as tmp_dir:
-                scenario_pth = os.path.join(tmp_dir, "scenario.md")
+                scenario_dir = os.path.join(tmp_dir, pth.parent.name)
+                os.mkdir(scenario_dir)
+
+                scenario_pth = os.path.join(scenario_dir, "scenario.md")
                 shutil.copy(src=str(pth), dst=scenario_pth)
 
                 argv = ["once", "--scenarios_dir", tmp_dir]

@@ -16,6 +16,8 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Callable,
+    Protocol,
 )
 
 import PIL
@@ -328,8 +330,10 @@ def _render_scenario_to_xml(
     for element in itertools.chain(
         root.iter("model"),
         root.iter("def"),
+        root.iter("test"),
         root.iter("ref"),
         root.iter("modelref"),
+        root.iter("testref"),
         root.iter("phase"),
         root.iter("level"),
     ):
@@ -370,39 +374,34 @@ def _extract_definitions(
         ]
 
     root = ET.fromstring(text)
-    model_set = set()  # type: Set[str]
-    for element in root.iter("model"):
-        name = element.attrib["name"]
-        model_set.add(name)
 
-    def_set = set()  # type: Set[str]
-    for element in root.iter("def"):
-        name = element.attrib["name"]
-        def_set.add(name)
+    def collect_set_of_named_references(tag: str) -> Set[str]:
+        """Collect the set of references for the given specification tag."""
+        result = set()  # type: Set[str]
+        for element in root.iter(tag):
+            name = element.attrib["name"]
+            result.add(name)
+        return result
 
-    return rasaeco.model.Definitions(model_set=model_set, def_set=def_set), []
+    return (
+        rasaeco.model.Definitions(
+            model_set=collect_set_of_named_references(tag="model"),
+            def_set=collect_set_of_named_references(tag="def"),
+            test_set=collect_set_of_named_references(tag="test"),
+        ),
+        [],
+    )
 
 
-@icontract.require(lambda element: element.tag == "ref")
-def _parse_ref_element(element: ET.Element) -> Tuple[Optional[str], str]:
-    """Extract the scenario identifier and the definition name from the ref."""
-    name = element.attrib["name"]
-    if "#" in name:
-        scenario_id, ref = name.split("#")
-        return scenario_id, ref
+@icontract.require(lambda element: element.tag in ["ref", "modelref", "testref"])
+def _parse_reference_element(element: ET.Element) -> Tuple[Optional[str], str]:
+    """Extract the scenario identifier and the name from a reference element."""
+    name_attribute = element.attrib["name"]
+    if "#" in name_attribute:
+        scenario_id, name = name_attribute.split("#")
+        return scenario_id, name
     else:
-        return None, name
-
-
-@icontract.require(lambda element: element.tag == "modelref")
-def _parse_modelref_element(element: ET.Element) -> Tuple[Optional[str], str]:
-    """Extract the scenario identifier and the model name from the modelref."""
-    name = element.attrib["name"]
-    if "#" in name:
-        scenario_id, modelref = name.split("#")
-        return scenario_id, modelref
-    else:
-        return None, name
+        return None, name_attribute
 
 
 @icontract.require(lambda xml_path: xml_path.suffix == ".xml")
@@ -422,55 +421,68 @@ def _validate_references(
 
     root = ET.fromstring(text)
 
-    errors = []  # type: List[str]
-
     body = root.find("body")
     assert body is not None
 
-    ##
-    # Validate that all modelrefs have the model defined
-    ##
+    class SetGetterForScenario(Protocol):
+        def __call__(self, scenario_id: str) -> Set[str]:
+            ...
 
-    for element in root.iter("modelref"):
-        scenario_id, modelref = _parse_modelref_element(element=element)
-        scenario_id = scenario_id if scenario_id is not None else scenario.identifier
+    @icontract.require(
+        lambda reference_tag: reference_tag in ["modelref", "ref", "testref"]
+    )
+    def validate_references_for_tag(
+        reference_tag: str, set_getter_for_scenario: SetGetterForScenario
+    ) -> List[str]:
+        """Validate that the reference tags refer to the actual definitions."""
+        errors = []  # type: List[str]
 
-        if scenario_id not in ontology.scenario_map:
-            errors.append(
-                f"The modelref is invalid: {modelref!r}; "
-                f"the scenario with the identifier {scenario_id} does not exist."
-            )
-        elif modelref not in ontology.scenario_map[scenario_id].definitions.model_set:
-            errors.append(
-                f"The modelref is invalid: {modelref!r}; "
-                f"the model has not been specified."
-            )
-
-    ##
-    # Validate that all refs have the def defined
-    ##
-
-    for element in root.iter("ref"):
-        scenario_id, ref = _parse_ref_element(element=element)
-        scenario_id = scenario_id if scenario_id is not None else scenario.identifier
-
-        if scenario_id not in ontology.scenario_map:
-            errors.append(
-                f"The ref is invalid: {ref!r}; "
-                f"the scenario with the identifier {scenario_id} does not exist."
-            )
-        elif ref not in ontology.scenario_map[scenario_id].definitions.def_set:
-            errors.append(
-                f"The ref is invalid: {ref!r}; "
-                f"the definition has not been specified."
+        for element in root.iter(reference_tag):
+            scenario_id, name = _parse_reference_element(element=element)
+            scenario_id = (
+                scenario_id if scenario_id is not None else scenario.identifier
             )
 
-    if errors:
+            if scenario_id not in ontology.scenario_map:
+                errors.append(
+                    f"The {reference_tag} is invalid: {_element_to_str(element)}; "
+                    f"the scenario with the identifier {scenario_id} does not exist."
+                )
+            elif name not in set_getter_for_scenario(scenario_id=scenario_id):
+                errors.append(
+                    f"The {reference_tag} is invalid: {_element_to_str(element)!r}; "
+                    f"the specified target {name!r} is missing in the scenario {scenario_id}."
+                )
+            else:
+                # The reference is valid.
+                pass
+
         return errors
 
-    return []
+    return (
+        validate_references_for_tag(
+            reference_tag="modelref",
+            set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
+                scenario_id
+            ].definitions.model_set,
+        )
+        + validate_references_for_tag(
+            reference_tag="ref",
+            set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
+                scenario_id
+            ].definitions.def_set,
+        )
+        + validate_references_for_tag(
+            reference_tag="testref",
+            set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
+                scenario_id
+            ].definitions.test_set,
+        )
+    )
+
 
 _INFLECT_ENGINE = inflect.engine()
+
 
 @icontract.require(lambda xml_path: xml_path.suffix == ".xml")
 def _render_scenario(
@@ -498,68 +510,48 @@ def _render_scenario(
     assert body is not None
 
     ##
-    # Convert <model> tags into <a> anchors and <h3> tags
+    # Convert specification tags to proper HTML
     ##
 
-    for element in root.iter("model"):
-        name = element.attrib["name"]
+    def convert_tags_to_html(tag: str) -> None:
+        """Convert a specification tag, such as <model> to proper HTML."""
+        for element in root.iter(tag):
+            name = element.attrib["name"]
 
-        element.tag = "div"
-        element.attrib = {"class": "model"}
+            element.tag = "div"
+            element.attrib = {"class": tag}
 
-        header_el = ET.Element("h3")
+            header_el = ET.Element("h3")
 
-        anchor_el = ET.Element("a")
-        anchor_el.attrib = {"name": f"model-{name}"}
-        anchor_el.text = " "
-        header_el.insert(0, anchor_el)
+            anchor_el = ET.Element("a")
+            anchor_el.attrib = {"name": f"{tag}-{name}"}
+            anchor_el.text = " "
+            header_el.insert(0, anchor_el)
 
-        link_el = ET.Element("a")
-        link_el.attrib = {"href": f"#model-{name}", "class": "anchor"}
-        link_el.text = "🔗"
-        link_el.tail = name
-        header_el.insert(0, link_el)
-        header_el.tail = "\n"
+            link_el = ET.Element("a")
+            link_el.attrib = {"href": f"#{tag}-{name}", "class": "anchor"}
+            link_el.text = "🔗"
+            link_el.tail = name
+            header_el.insert(0, link_el)
+            header_el.tail = "\n"
 
-        element.insert(0, header_el)
+            element.insert(0, header_el)
 
-    ##
-    # Convert <def> tags into <a> anchors and <h3> tags
-    ##
-
-    for element in root.iter("def"):
-        name = element.attrib["name"]
-        readable = name.replace('_', ' ')
-
-        element.tag = "div"
-        element.attrib = {"class": "def"}
-
-        header_el = ET.Element("h3")
-
-        anchor_el = ET.Element("a")
-        anchor_el.attrib = {"name": f"def-{name}"}
-        anchor_el.text = " "
-        header_el.insert(0, anchor_el)
-
-        link_el = ET.Element("a")
-        link_el.attrib = {"href": f"#def-{name}", "class": "anchor"}
-        link_el.text = "🔗"
-        link_el.tail = readable
-        header_el.insert(0, link_el)
-        header_el.tail = "\n"
-
-        element.insert(0, header_el)
+    convert_tags_to_html(tag="model")
+    convert_tags_to_html(tag="def")
+    convert_tags_to_html(tag="test")
 
     ##
-    # Replace <ref> tags with proper HTML
+    # Convert references to proper HTML
     ##
 
+    # <ref> is a special case as we need to pluralize and prettify.
     for element in root.iter("ref"):
-        scenario_id, ref = _parse_ref_element(element=element)
+        scenario_id, ref = _parse_reference_element(element=element)
 
-        readable = ref.replace('_', ' ')
-        if element.tail.startswith('s'):
-            element.tail=element.tail[1:]
+        readable = ref.replace("_", " ")
+        if element.tail is not None and element.tail.startswith("s"):
+            element.tail = element.tail[1:]
             readable = _INFLECT_ENGINE.plural_noun(readable)
 
         if scenario_id is None:
@@ -580,30 +572,43 @@ def _render_scenario(
         if len(element) == 0 and not element.text:
             element.text = link_text
 
-    ##
-    # Replace <modelref> tags with proper HTML
-    ##
-
-    for element in root.iter("modelref"):
-        scenario_id, modelref = _parse_modelref_element(element=element)
-
-        if scenario_id is None:
-            link_text = modelref
-            href = f"#model-{modelref}"
+    @icontract.require(
+        lambda reference_tag: reference_tag in ["modelref", "ref", "testref"]
+    )
+    def convert_references_to_html(reference_tag: str) -> None:
+        """Convert the reference tags to proper HTML."""
+        if reference_tag == "modelref":
+            target_tag = "model"
+        elif reference_tag == "ref":
+            target_tag = "def"
+        elif reference_tag == "testref":
+            target_tag = "test"
         else:
-            link_text = f"{modelref} (from {scenario_id})"
+            raise ValueError(f"Unexpected reference tag: {reference_tag!r}")
 
-            href_pth = _html_path(
-                scenario_path=rel_pth_to_scenario_dir
-                / ontology.scenario_map[scenario_id].relative_path
-            )
-            href = f"{href_pth.as_posix()}#model-{modelref}"
+        for element in root.iter(reference_tag):
+            scenario_id, name = _parse_reference_element(element=element)
 
-        element.tag = "a"
-        element.attrib = {"href": href, "class": "modelref"}
+            if scenario_id is None:
+                link_text = name
+                href = f"#{target_tag}-{name}"
+            else:
+                link_text = f"{name} (from {scenario_id})"
 
-        if len(element) == 0 and not element.text:
-            element.text = link_text
+                href_pth = _html_path(
+                    scenario_path=rel_pth_to_scenario_dir
+                    / ontology.scenario_map[scenario_id].relative_path
+                )
+                href = f"{href_pth.as_posix()}#{target_tag}-{name}"
+
+            element.tag = "a"
+            element.attrib = {"href": href, "class": reference_tag}
+
+            if len(element) == 0 and not element.text:
+                element.text = link_text
+
+    convert_references_to_html(reference_tag="modelref")
+    convert_references_to_html(reference_tag="testref")
 
     ##
     # Replace <phase> tags with proper HTML
@@ -618,7 +623,7 @@ def _render_scenario(
 
     for element in root.iter("phase"):
         name = element.attrib["name"]
-        readable = name.replace('_', ' ')
+        readable = name.replace("_", " ")
 
         element.tag = "span"
         element.attrib = {"class": "phase", "data-text": name}
@@ -645,7 +650,7 @@ def _render_scenario(
 
     for element in root.iter("level"):
         name = element.attrib["name"]
-        readable = name.replace('_', ' ')
+        readable = name.replace("_", " ")
 
         element.tag = "span"
         element.attrib = {"class": "level", "data-text": name}

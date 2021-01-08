@@ -152,5 +152,17 @@ MUST
     not CanModify(w, s)
 ```
 
+The permissions are tested in <testref name="unauthorized" />.
+
 <level name="site">We consider only the scaffolding on a single construction 
 site.</level>
+
+## Test Cases
+
+<test name="unauthorized">
+
+A worker logs in and tries to access the scaffolds to modify their positions.
+
+The system should show "Not authorized".
+
+</test>
