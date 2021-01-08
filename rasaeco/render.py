@@ -20,6 +20,7 @@ from typing import (
 
 import PIL
 import icontract
+import inflect
 import marko
 import matplotlib
 
@@ -469,6 +470,7 @@ def _validate_references(
 
     return []
 
+_INFLECT_ENGINE = inflect.engine()
 
 @icontract.require(lambda xml_path: xml_path.suffix == ".xml")
 def _render_scenario(
@@ -527,6 +529,7 @@ def _render_scenario(
 
     for element in root.iter("def"):
         name = element.attrib["name"]
+        readable = name.replace('_', ' ')
 
         element.tag = "div"
         element.attrib = {"class": "def"}
@@ -541,7 +544,7 @@ def _render_scenario(
         link_el = ET.Element("a")
         link_el.attrib = {"href": f"#def-{name}", "class": "anchor"}
         link_el.text = "🔗"
-        link_el.tail = name
+        link_el.tail = readable
         header_el.insert(0, link_el)
         header_el.tail = "\n"
 
@@ -553,11 +556,17 @@ def _render_scenario(
 
     for element in root.iter("ref"):
         scenario_id, ref = _parse_ref_element(element=element)
+
+        readable = ref.replace('_', ' ')
+        if element.tail.startswith('s'):
+            element.tail=element.tail[1:]
+            readable = _INFLECT_ENGINE.plural_noun(readable)
+
         if scenario_id is None:
-            link_text = ref
+            link_text = readable
             href = f"#def-{ref}"
         else:
-            link_text = f"{ref} (from {scenario_id})"
+            link_text = f"{readable} (from {scenario_id})"
 
             href_pth = _html_path(
                 scenario_path=rel_pth_to_scenario_dir
@@ -577,6 +586,7 @@ def _render_scenario(
 
     for element in root.iter("modelref"):
         scenario_id, modelref = _parse_modelref_element(element=element)
+
         if scenario_id is None:
             link_text = modelref
             href = f"#model-{modelref}"
@@ -608,12 +618,13 @@ def _render_scenario(
 
     for element in root.iter("phase"):
         name = element.attrib["name"]
+        readable = name.replace('_', ' ')
 
         element.tag = "span"
         element.attrib = {"class": "phase", "data-text": name}
 
         sup_el = ET.Element("sup")
-        sup_el.text = name
+        sup_el.text = readable
         element.append(sup_el)
 
         anchor = f"phase-anchor-{uuid.uuid4()}"
@@ -634,12 +645,13 @@ def _render_scenario(
 
     for element in root.iter("level"):
         name = element.attrib["name"]
+        readable = name.replace('_', ' ')
 
         element.tag = "span"
         element.attrib = {"class": "level", "data-text": name}
 
         sup_el = ET.Element("sup")
-        sup_el.text = name
+        sup_el.text = readable
         element.append(sup_el)
 
         anchor = f"level-anchor-{uuid.uuid4()}"

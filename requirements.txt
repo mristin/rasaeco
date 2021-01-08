@@ -6,3 +6,4 @@ typeguard>=2,<3
 numpy==1.19.3
 matplotlib>=3.3.3,<4
 watchdog>=1,<2
+inflect>=5,<6

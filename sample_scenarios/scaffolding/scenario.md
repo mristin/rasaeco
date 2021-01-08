@@ -45,63 +45,46 @@ It is updated in real time.
 
 ## Definitions
 
-<def name="scaffolds">
+<def name="scaffold">
 
 ```bim
-scaffoldLabel = IfcLabel("Scaffold")
-
-scaffolds = 
-    SELECT e
-    FROM
-        e is IfcBuildingElementType modeled in plan/main
-    WHERE 
-        e.ElementType == scaffoldLabel
+scaffold 
+    is IfcBuildingElementType modeled in plan/main
+    with .ElementType == "Scaffold"
 ```
 
 </def>
 
-<def name="receptionPlatforms">
+<def name="reception_platform">
 
 ```bim
-receptionPlatformLabel = IfcLabel("ReceptionPlatform")
-
-receptionPlatforms = 
-    SELECT e
-    FROM
-        e is IfcBuildingElementType modeled in observed/main
-    WHERE
-        e.ElementType == receptionPlatformLabel
+reception_platform 
+    is IfcBuildingElementType modeled in observed/main
+    with .ElementType == "ReceptionPlatform"
 ```
 
 </def>
 
-<def name="misplacedScaffolds">
+<def name="misplaced_scaffold">
 
-The scaffolds with incorrectly planned height:
+The scaffold with incorrectly planned height:
 
 ```bim
-misplacedScaffolds = 
-    SELECT s
-    FROM
-        rp in receptionPlatforms
-        s in scaffolds
-    WHERE
-        abs(s.NominalHeight - rp.NominalHeight) < 1 meter 
+misplaced_scaffold 
+    is a scaffold
+    associated with the reception_platform rp
+    where 
+        abs(misplaced_scaffold.NominalHeight - rp.NominalHeight) < 1 meter 
 ```
 
 </def>
 
-<def name="workers">
+<def name="worker">
 
 ```bin
-workerLabel = IfcLabel("Worker")
-
-workers = 
-    SELECT a
-    FROM
-        a is IfcActor in staff
-    WHERE
-        a.Category == workerLabel
+worker
+    is IfcActor modeled in staff
+    with .Category == "Worker"
 ```
 
 </def>
@@ -111,7 +94,7 @@ workers =
 
 ### As-planned
 
-The <ref name="scaffolds" /> are expected to be tracked in 
+The <ref name="scaffold" />s are expected to be tracked in 
 the model <modelref name="plan/main" />. The plan should include the position 
 and the height of the scaffolds.  
 
@@ -123,49 +106,48 @@ the <modelref name="observed/main" />.
 ### Divergence
 
 <phase name="planning">
-    During the planning phase, the <ref name="scaffolds" /> are wrongly planed.
+    During the planning phase, the <ref name="scaffold" />s are wrongly planed.
 </phase>
 <phase name="construction">
-    The <ref name="receptionPlatforms" /> can not be appropriately fixed 
+    The <ref name="reception_platform" />s can not be appropriately fixed 
     on <level name="site">the site</level>.
 </phase>
 
 ### Analytics
 
-The <ref name="misplacedScaffolds" /> should be reported on the web platform.
+The <ref name="misplaced_scaffold" />s should be reported on the web platform.
 
 ### Scheduling
 
-All the tasks affected by the <ref name="misplacedScaffolds" /> should be set 
+All the tasks affected by the <ref name="misplaced_scaffold" />s should be set 
 to blocking.
 
 Formally:
 
 ```bim
-tt = SELECT t 
+tt = 
+    SELECT t 
     FROM
-        s in misplacedScaffolds
-        t in IfcTask modeled in plan/main
+        s is a misplaced_scaffold
+        t is an IfcTask modeled in plan/main
     WHERE
         Affected(t, s)
 
-blockedLabel = IfcLabel("blocked")
-
 UPDATE
-    t.Status = blockedLabel
+    t.Status = "blocked"
 FROM
     t in tt
 ```
 
 ### Safety
 
-No <ref name="workers">worker</ref> is allowed to make changes to 
-the <ref name="misplacedScaffolds" />:
+No <ref name="worker" /> is allowed to make changes to 
+the <ref name="misplaced_scaffold" />s:
 
 ```bim
 FROM
-    w in workers
-    s in misplacedScaffolds
+    w is a worker
+    s is a misplaced_scaffold
 MUST
     not CanModify(w, s)
 ```
