@@ -182,11 +182,27 @@ If you want to write (pseudo)code in the definition, use ``````` (three backtick
     The possible placements for the reception platform should be computed based on
     the <modelref name="observed/main" />.
 
+It is also possible to reference models from another scenario by writing the scenario identifier,
+followed by ``#`` and the model name:
+
+.. code-block::
+
+    This is a dummy reference to the model <modelref name="scaffolding#plan/main" />.
+
+
 **Definition references** are written using ``<ref>`` tag:
 
 .. code-block::
 
     The <ref name="receptionPlatforms" /> can not be appropriately fixed.
+
+It is also possible to reference models from another scenario by writing the scenario identifier,
+followed by ``#`` and the definition name:
+
+.. code-block::
+
+    This is a dummy reference to the definition <ref name="scaffolding#scaffolds" />.
+
 
 **Marking phase and level**. Use ``<phase>`` and ``<level>`` to mark the phase in
 the building life cycle and hierarchy level of detail, respectively.

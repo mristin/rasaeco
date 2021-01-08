@@ -1,6 +1,7 @@
 """Represent an ontology of scenarios."""
+import dataclasses
 import pathlib
-from typing import Optional, List, MutableMapping, Mapping, cast, Dict
+from typing import Optional, List, MutableMapping, Mapping, cast, Dict, Set
 
 import icontract
 
@@ -143,6 +144,14 @@ class Relation:
         self.nature = nature
 
 
+@dataclasses.dataclass
+class Definitions:
+    """Represent definitions in a scenario such as model set and definition set."""
+
+    model_set: Set[str]
+    def_set: Set[str]
+
+
 class Scenario:
     """Represent a working model of a scenario."""
 
@@ -153,6 +162,7 @@ class Scenario:
         title: str,
         contact: str,
         volumetric: List[Cubelet],
+        definitions: Definitions,
         relative_path: pathlib.Path,
     ) -> None:
         """Initialize with the given values."""
@@ -160,6 +170,7 @@ class Scenario:
         self.title = title
         self.contact = contact
         self.volumetric = volumetric
+        self.definitions = definitions
         self.relative_path = relative_path
 
 
