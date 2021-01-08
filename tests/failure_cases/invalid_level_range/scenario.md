@@ -1,6 +1,5 @@
 <rasaeco-meta>
 {
-    "identifier": "invalid",
     "title": "Invalid",
     "relations": [
     ],

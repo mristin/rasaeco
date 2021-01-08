@@ -95,11 +95,17 @@ Write documents in the following directory structure:
     ontology/
         some-scenario/
             scenario.md
-        another-scenario/
-            scenario.md
-        yet-another-scenario/
-            scenario.md
+        some-group/
+            another-scenario/
+                scenario.md
+            yet-another-scenario/
+                scenario.md
     ...
+
+The identifier of a scenarios is given by the POSIX path of the scenario directory relative to
+the ontology directory.
+
+For example, ``some-scenario`` and ``some-group/another-scenario``.
 
 Header
 ~~~~~~
@@ -111,11 +117,10 @@ Here is an example:
 
     <rasaeco-meta>
     {
-        "identifier": "some_scenario",
         "title": "Some Scenario",
         "relations": [
-            { "target": "another_scenario", "nature": "is instance of" }
-            { "target": "yet_another_scenario", "nature": "refines" }
+            { "target": "some-group/another_scenario", "nature": "is instance of" }
+            { "target": "some-group/yet_another_scenario", "nature": "refines" }
         ],
         "volumetric": [
             {

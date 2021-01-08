@@ -1,6 +1,5 @@
 <rasaeco-meta>
 {
-    "identifier": "scaffolding",
     "title": "Scaffolding",
     "relations": [
         { "target": "non-existing scenario", "nature": "is instance of" }
