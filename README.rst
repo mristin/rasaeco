@@ -118,6 +118,7 @@ Here is an example:
     <rasaeco-meta>
     {
         "title": "Some Scenario",
+        "contact": "Marko Ristin <rist@zhaw.ch>, Somebody Else <somebody@else.ch>",
         "relations": [
             { "target": "some-group/another_scenario", "nature": "is instance of" }
             { "target": "some-group/yet_another_scenario", "nature": "refines" }

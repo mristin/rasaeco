@@ -30,6 +30,7 @@ class Meta(TypedDict):
     """Represent meta information extracted from a scenario markdown."""
 
     title: str
+    contact: str
     relations: List[RelatesTo]
     volumetric: List[Cubelet]
 

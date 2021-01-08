@@ -1,6 +1,7 @@
 <rasaeco-meta id="f">
 {
     "title": "Z Dummy Scenario",
+    "contact": "Marko Ristin <rist@zhaw.ch>, Somebody Else <somebody@else.ch>",
     "relations": [],
     "volumetric": [
         { 
