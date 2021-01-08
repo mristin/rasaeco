@@ -159,21 +159,18 @@ If you want to write (pseudo)code in the definition, use ``````` (three backtick
 
 .. code-block::
 
-    <def name="reception_platforms">
+    <def name="reception_platform">
 
     ```bim
-    reception_platform_label = IfcLabel("ReceptionPlatform")
-
-    reception_platforms =
-        SELECT e
-        FROM
-            e is IfcBuildingElementType modeled in observed/main
-        WHERE
-            e.ElementType == reception_platform_label
+    reception_platform
+        is IfcBuildingElementType modeled in observed/main
+        with .ElementType == "ReceptionPlatform"
     ```
 
     </def>
 
+In general, give the name using singular form, ``snake_case`` and lower-case. For example,
+``reception_platform``.
 
 **Model references** are written using ``<modelref>`` tag:
 
@@ -194,14 +191,30 @@ followed by ``#`` and the model name:
 
 .. code-block::
 
-    The <ref name="receptionPlatforms" /> can not be appropriately fixed.
+    The <ref name="reception_platform" /> can not be appropriately fixed.
 
 It is also possible to reference models from another scenario by writing the scenario identifier,
 followed by ``#`` and the definition name:
 
 .. code-block::
 
-    This is a dummy reference to the definition <ref name="scaffolding#scaffolds" />.
+    This is a dummy reference to the definition <ref name="scaffolding#scaffold" />.
+
+We apply a couple of text transformations during rendering to improve the readability.
+The underscores in the references are replaced with spaces.
+If the reference is followed by an "s", it will be automatically inflected to a plural.
+
+For example,
+
+.. code-block::
+
+    The <ref name="misplaced_scaffold" />s are ...
+
+will be rendered to:
+
+.. code-block::
+
+    The misplaced scaffolds are ...
 
 
 **Marking phase and level**. Use ``<phase>`` and ``<level>`` to mark the phase in
