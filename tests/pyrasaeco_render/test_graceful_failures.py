@@ -38,7 +38,7 @@ class TestOnFailureCases(unittest.TestCase):
                     ) from exception
 
                 error = stderr.getvalue()
-                error = error.replace(tmp_dir, "<tmp dir>")
+                error = error.replace(str(scenario_pth), "<path to scenario.md>")
 
                 expected_pth = pth.parent / "expected.err"
                 expected = expected_pth.read_text(encoding="utf-8")

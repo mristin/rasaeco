@@ -1,1 +1,1 @@
-When rendering <tmp dir>\scenario.md: The modelref is invalid: 'invalid/model'
+When rendering <path to scenario.md>: The modelref is invalid: 'invalid/model'
