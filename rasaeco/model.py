@@ -151,12 +151,14 @@ class Scenario:
         self,
         identifier: str,
         title: str,
+        contact: str,
         volumetric: List[Cubelet],
         relative_path: pathlib.Path,
     ) -> None:
         """Initialize with the given values."""
         self.identifier = identifier
         self.title = title
+        self.contact = contact
         self.volumetric = volumetric
         self.relative_path = relative_path
 

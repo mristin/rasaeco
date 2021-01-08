@@ -1,6 +1,7 @@
 <rasaeco-meta>
 {
     "title": "Scaffolding",
+    "contact": "Marko Ristin <rist@zhaw.ch>, Somebody Else <somebody@else.ch>",
     "relations": [
         { "target": "z_dummy_scenario", "nature": "is instance of" }
     ],

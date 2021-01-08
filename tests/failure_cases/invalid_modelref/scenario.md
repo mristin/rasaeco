@@ -1,6 +1,7 @@
 <rasaeco-meta>
 {
     "title": "Invalid",
+    "contact": "Somebody Else",
     "relations": [
     ],
     "volumetric": [

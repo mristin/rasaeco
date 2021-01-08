@@ -672,6 +672,12 @@ def _render_scenario(
     body.insert(0, img)
 
     ##
+    # Insert the contact
+    ##
+
+    body.insert(0, _element_with_text(tag="p", text=scenario.contact))
+
+    ##
     # Insert the title
     ##
 
@@ -803,6 +809,7 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
         scenario = rasaeco.model.Scenario(
             identifier=identifier,
             title=meta["title"],
+            contact=meta["contact"],
             volumetric=volumetric,
             relative_path=path_map[identifier].relative_to(scenarios_dir),
         )
