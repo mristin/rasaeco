@@ -16,10 +16,16 @@ def main() -> int:
         "If not set, an exception is raised if any of the files do not conform to the style guide.",
         action="store_true",
     )
+    parser.add_argument(
+        "--skip_tests",
+        help="Skip running the unit tests",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
     overwrite = bool(args.overwrite)
+    skip_tests = bool(args.skip_tests)
 
     repo_root = pathlib.Path(__file__).parent
 
@@ -44,17 +50,18 @@ def main() -> int:
     print("Pydocstyle'ing...")
     subprocess.check_call(["pydocstyle", "rasaeco"], cwd=str(repo_root))
 
-    print("Testing...")
-    env = os.environ.copy()
-    env["ICONTRACT_SLOW"] = "true"
+    if not skip_tests:
+        print("Testing...")
+        env = os.environ.copy()
+        env["ICONTRACT_SLOW"] = "true"
 
-    subprocess.check_call(
-        ["coverage", "run", "--source", "rasaeco", "-m", "unittest", "discover"],
-        cwd=str(repo_root),
-        env=env,
-    )
+        subprocess.check_call(
+            ["coverage", "run", "--source", "rasaeco", "-m", "unittest", "discover"],
+            cwd=str(repo_root),
+            env=env,
+        )
 
-    subprocess.check_call(["coverage", "report"])
+        subprocess.check_call(["coverage", "report"])
 
     print("Doctesting...")
     subprocess.check_call([sys.executable, "-m", "doctest", "README.rst"])
