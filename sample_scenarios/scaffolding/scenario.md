@@ -152,10 +152,11 @@ MUST
     not CanModify(w, s)
 ```
 
-The permissions are tested in <testref name="unauthorized" />.
-
 <level name="site">We consider only the scaffolding on a single construction 
 site.</level>
+
+The permissions are tested in <testref name="unauthorized" /> and acceptance criterion is defined
+in <acceptanceref name="authorization_fast_enough" />.
 
 ## Test Cases
 
@@ -166,3 +167,11 @@ A worker logs in and tries to access the scaffolds to modify their positions.
 The system should show "Not authorized".
 
 </test>
+
+## Acceptance Criteria
+
+<acceptance name="authorization_fast_enough">
+
+The worker should see the "unauthorized" alert in less than 5 seconds.
+
+</acceptance>

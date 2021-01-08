@@ -331,9 +331,11 @@ def _render_scenario_to_xml(
         root.iter("model"),
         root.iter("def"),
         root.iter("test"),
+        root.iter("acceptance"),
         root.iter("ref"),
         root.iter("modelref"),
         root.iter("testref"),
+        root.iter("acceptanceref"),
         root.iter("phase"),
         root.iter("level"),
     ):
@@ -388,12 +390,15 @@ def _extract_definitions(
             model_set=collect_set_of_named_references(tag="model"),
             def_set=collect_set_of_named_references(tag="def"),
             test_set=collect_set_of_named_references(tag="test"),
+            acceptance_set=collect_set_of_named_references(tag="acceptance"),
         ),
         [],
     )
 
 
-@icontract.require(lambda element: element.tag in ["ref", "modelref", "testref"])
+@icontract.require(
+    lambda element: element.tag in ["ref", "modelref", "testref", "acceptanceref"]
+)
 def _parse_reference_element(element: ET.Element) -> Tuple[Optional[str], str]:
     """Extract the scenario identifier and the name from a reference element."""
     name_attribute = element.attrib["name"]
@@ -429,7 +434,8 @@ def _validate_references(
             ...
 
     @icontract.require(
-        lambda reference_tag: reference_tag in ["modelref", "ref", "testref"]
+        lambda reference_tag: reference_tag
+        in ["modelref", "ref", "testref", "acceptanceref"]
     )
     def validate_references_for_tag(
         reference_tag: str, set_getter_for_scenario: SetGetterForScenario
@@ -478,6 +484,12 @@ def _validate_references(
                 scenario_id
             ].definitions.test_set,
         )
+        + validate_references_for_tag(
+            reference_tag="acceptanceref",
+            set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
+                scenario_id
+            ].definitions.acceptance_set,
+        )
     )
 
 
@@ -513,7 +525,7 @@ def _render_scenario(
     # Convert specification tags to proper HTML
     ##
 
-    def convert_tags_to_html(tag: str) -> None:
+    def convert_tags_to_html(tag: str, readable_title: bool) -> None:
         """Convert a specification tag, such as <model> to proper HTML."""
         for element in root.iter(tag):
             name = element.attrib["name"]
@@ -531,15 +543,21 @@ def _render_scenario(
             link_el = ET.Element("a")
             link_el.attrib = {"href": f"#{tag}-{name}", "class": "anchor"}
             link_el.text = "🔗"
-            link_el.tail = name
+
+            if readable_title:
+                link_el.tail = name.replace("_", " ")
+            else:
+                link_el.tail = name
+
             header_el.insert(0, link_el)
             header_el.tail = "\n"
 
             element.insert(0, header_el)
 
-    convert_tags_to_html(tag="model")
-    convert_tags_to_html(tag="def")
-    convert_tags_to_html(tag="test")
+    convert_tags_to_html(tag="model", readable_title=False)
+    convert_tags_to_html(tag="def", readable_title=True)
+    convert_tags_to_html(tag="test", readable_title=True)
+    convert_tags_to_html(tag="acceptance", readable_title=True)
 
     ##
     # Convert references to proper HTML
@@ -573,7 +591,8 @@ def _render_scenario(
             element.text = link_text
 
     @icontract.require(
-        lambda reference_tag: reference_tag in ["modelref", "ref", "testref"]
+        lambda reference_tag: reference_tag
+        in ["modelref", "ref", "testref", "acceptanceref"]
     )
     def convert_references_to_html(reference_tag: str) -> None:
         """Convert the reference tags to proper HTML."""
@@ -583,6 +602,8 @@ def _render_scenario(
             target_tag = "def"
         elif reference_tag == "testref":
             target_tag = "test"
+        elif reference_tag == "acceptanceref":
+            target_tag = "acceptance"
         else:
             raise ValueError(f"Unexpected reference tag: {reference_tag!r}")
 
@@ -609,6 +630,7 @@ def _render_scenario(
 
     convert_references_to_html(reference_tag="modelref")
     convert_references_to_html(reference_tag="testref")
+    convert_references_to_html(reference_tag="acceptanceref")
 
     ##
     # Replace <phase> tags with proper HTML

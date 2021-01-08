@@ -152,6 +152,20 @@ Tag text in markdown with XML tags.
 **Models**.
 Models are defined as ``<model name="...">...</model>``.
 
+**Model references** are written using ``<modelref>`` tag:
+
+.. code-block::
+
+    The possible placements for the reception platform should be computed based on
+    the <modelref name="observed/main" />.
+
+It is also possible to reference models from another scenario by writing the scenario identifier,
+followed by ``#`` and the model name:
+
+.. code-block::
+
+    This is a dummy reference to the model <modelref name="scaffolding#plan/main" />.
+
 **Definitions**.
 Definitions are defined ``<def name="...">...</def>``.
 
@@ -171,21 +185,6 @@ If you want to write (pseudo)code in the definition, use ``````` (three backtick
 
 In general, give the name using singular form, ``snake_case`` and lower-case. For example,
 ``reception_platform``.
-
-**Model references** are written using ``<modelref>`` tag:
-
-.. code-block::
-
-    The possible placements for the reception platform should be computed based on
-    the <modelref name="observed/main" />.
-
-It is also possible to reference models from another scenario by writing the scenario identifier,
-followed by ``#`` and the model name:
-
-.. code-block::
-
-    This is a dummy reference to the model <modelref name="scaffolding#plan/main" />.
-
 
 **Definition references** are written using ``<ref>`` tag:
 
@@ -216,7 +215,6 @@ will be rendered to:
 
     The misplaced scaffolds are ...
 
-
 **Marking phase and level**. Use ``<phase>`` and ``<level>`` to mark the phase in
 the building life cycle and hierarchy level of detail, respectively.
 
@@ -231,7 +229,13 @@ the building life cycle and hierarchy level of detail, respectively.
 **Test cases**. Test cases are marked using ``<test name="...">...</test>``. You can reference the
 individual tests using ``<testref name="..." />``.
 
-Analogous to ``<ref>`` and ``<modelref>``, test references extend across scenarios.
+Analogous to ``<ref>`` and ``<modelref>``, references to test cases extend across scenarios.
+
+**Acceptance criteria**. Acceptance criteria are marked using ``<acceptance name="...">...</test>``.
+You can reference the individual acceptance criteria using ``<acceptanceref name="..." />``.
+
+Analogous to ``<ref>`` and ``<modelref>``, references to acceptance criteria extend
+across scenarios.
 
 Further Examples
 ~~~~~~~~~~~~~~~~
