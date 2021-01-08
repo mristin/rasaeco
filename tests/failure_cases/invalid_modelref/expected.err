@@ -1,1 +1,1 @@
-When validating references in <path to scenario.md>: The modelref is invalid: 'invalid/model'; the model has not been specified.
+When validating references in <path to scenario.md>: The modelref is invalid: '<modelref name="invalid/model">'; the specified target 'invalid/model' is missing in the scenario invalid_modelref.

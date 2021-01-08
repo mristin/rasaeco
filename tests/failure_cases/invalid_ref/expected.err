@@ -1,1 +1,1 @@
-When validating references in <path to scenario.md>: The ref is invalid: 'invalid'; the definition has not been specified.
+When validating references in <path to scenario.md>: The ref is invalid: '<ref name="invalid">'; the specified target 'invalid' is missing in the scenario invalid_ref.

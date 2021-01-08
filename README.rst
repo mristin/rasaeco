@@ -228,6 +228,11 @@ the building life cycle and hierarchy level of detail, respectively.
     <phase name="construction">The <ref name="receptionPlatforms" /> can not be appropriately fixed
     on <level name="site">the site</level>.</phase>
 
+**Test cases**. Test cases are marked using ``<test name="...">...</test>``. You can reference the
+individual tests using ``<testref name="..." />``.
+
+Analogous to ``<ref>`` and ``<modelref>``, test references extend across scenarios.
+
 Further Examples
 ~~~~~~~~~~~~~~~~
 Please see
