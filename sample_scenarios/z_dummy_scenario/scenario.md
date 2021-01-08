@@ -1,6 +1,5 @@
 <rasaeco-meta id="f">
 {
-    "identifier": "z_dummy_scenario",
     "title": "Z Dummy Scenario",
     "relations": [],
     "volumetric": [

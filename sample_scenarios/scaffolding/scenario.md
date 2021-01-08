@@ -1,6 +1,5 @@
 <rasaeco-meta>
 {
-    "identifier": "scaffolding",
     "title": "Scaffolding",
     "relations": [
         { "target": "z_dummy_scenario", "nature": "is instance of" }

@@ -731,11 +731,6 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
 
         assert meta is not None
 
-        if meta["identifier"] in path_map:
-            errors.append(
-                f"In file {pth}: Identifier conflicts with the file {path_map[meta['identifier']]}"
-            )
-
         for i, cubelet in enumerate(meta["volumetric"]):
             ##
             # Verify aspect range
@@ -768,8 +763,10 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
                     f"In file {pth} and cubelet {i + 1}: Invalid level range: {range_error}"
                 )
 
-        meta_map[meta["identifier"]] = meta
-        path_map[meta["identifier"]] = pth
+        identifier = pth.parent.relative_to(scenarios_dir).as_posix()
+
+        meta_map[identifier] = meta
+        path_map[identifier] = pth
 
     scenario_id_set = set(meta_map.keys())
 

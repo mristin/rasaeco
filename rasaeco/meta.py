@@ -29,7 +29,6 @@ class Cubelet(TypedDict):
 class Meta(TypedDict):
     """Represent meta information extracted from a scenario markdown."""
 
-    identifier: str
     title: str
     relations: List[RelatesTo]
     volumetric: List[Cubelet]
