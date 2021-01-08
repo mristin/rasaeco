@@ -151,6 +151,7 @@ class Definitions:
     model_set: Set[str]
     def_set: Set[str]
     test_set: Set[str]
+    acceptance_set: Set[str]
 
 
 class Scenario:
