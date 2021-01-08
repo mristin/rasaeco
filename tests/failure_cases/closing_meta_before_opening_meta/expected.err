@@ -1,1 +1,1 @@
-In file <path to scenario.md>: Opening <rasaeco-meta> comes after closing </rasaeco-meta>.
+When rendering <path to scenario.md> to intermediate XML representation: Opening <rasaeco-meta> comes after closing </rasaeco-meta>.

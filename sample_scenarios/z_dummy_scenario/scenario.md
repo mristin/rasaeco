@@ -14,3 +14,7 @@
 </rasaeco-meta>
 
 This scenario is intentionally left empty.
+
+This is a dummy reference to the model <modelref name="scaffolding#plan/main"/>.
+
+This is a dummy reference to the definition <ref name="scaffolding#scaffolds"/>.

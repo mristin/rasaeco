@@ -1,15 +1,22 @@
 """Process the scenario files to obtain the ontology and render it as HTML."""
 import dataclasses
-import enum
 import itertools
 import json
 import pathlib
-import re
 import textwrap
 import uuid
 import xml.etree.ElementTree as ET
 import xml.sax.saxutils
-from typing import List, MutableMapping, Mapping, TypedDict, Set, Optional, Tuple
+from typing import (
+    List,
+    MutableMapping,
+    Mapping,
+    TypedDict,
+    Set,
+    Optional,
+    Tuple,
+    TypeVar,
+)
 
 import PIL
 import icontract
@@ -252,24 +259,24 @@ def _verify_all_tags_closed(xml_text: str) -> Optional[str]:
 
 
 @icontract.require(lambda scenario_path: scenario_path.suffix == ".md")
-def _render_scenario(
-    scenario: rasaeco.model.Scenario,
-    ontology: rasaeco.model.Ontology,
-    scenario_path: pathlib.Path,
-    scenarios_dir: pathlib.Path,
+@icontract.require(lambda xml_path: xml_path.suffix == ".xml")
+def _render_scenario_to_xml(
+    scenario_path: pathlib.Path, xml_path: pathlib.Path
 ) -> List[str]:
-    """Render a single scenario as HTML."""
+    """Render the scenario to an intermediate XML representation."""
     try:
         text = scenario_path.read_text(encoding="utf-8")
     except Exception as exception:
-        return [f"Failed to read the scenario {scenario_path}: {exception}"]
+        return [str(exception)]
 
     ##
     # Remove <rasaeco-meta>
     ##
 
-    meta_range, errors = rasaeco.meta.find_meta(text=text)
-    assert len(errors) == 0, errors
+    meta_range, meta_errors = rasaeco.meta.find_meta(text=text)
+    if meta_errors:
+        return meta_errors
+
     assert meta_range is not None
 
     text = text[: meta_range.block_start] + text[meta_range.block_end + 1 :]
@@ -281,9 +288,7 @@ def _render_scenario(
     try:
         document = marko.convert(text)
     except Exception as exception:
-        return [
-            f"Failed to convert the scenario markdown {scenario_path} to HTML: {exception}"
-        ]
+        return [f"Failed to convert the scenario markdown to HTML: {exception}"]
 
     ##
     # Parse as HTML
@@ -307,11 +312,13 @@ def _render_scenario(
         ]
 
     ##
-    # Transform
+    # Perform basic validation
     ##
 
     body = root.find("body")
     assert body is not None
+
+    errors = []  # type: List[str]
 
     ##
     # Validate that all the tags have the "name" attribute which need to have one
@@ -333,14 +340,167 @@ def _render_scenario(
     if errors:
         return errors
 
-    ##
-    # Convert <model> tags into <a> anchors and <h3> tags
-    ##
+    try:
+        xml_path.write_text(html_text)
+    except Exception as error:
+        return [
+            f"Failed to store the intermediate XML representation "
+            f"of a scenario {scenario_path} to {xml_path}: {error}"
+        ]
 
+    return []
+
+
+@icontract.require(lambda xml_path: xml_path.suffix == ".xml")
+def _extract_definitions(
+    xml_path: pathlib.Path,
+) -> Tuple[Optional[rasaeco.model.Definitions], List[str]]:
+    """
+    Extract the definitions from the intermediate representation of a scenario.
+
+    Return (definitions, errors if any).
+    """
+    try:
+        text = xml_path.read_text(encoding="utf-8")
+    except Exception as exception:
+        return None, [
+            f"Failed to read the intermediate representation "
+            f"of the scenario {xml_path}: {exception}"
+        ]
+
+    root = ET.fromstring(text)
     model_set = set()  # type: Set[str]
     for element in root.iter("model"):
         name = element.attrib["name"]
         model_set.add(name)
+
+    def_set = set()  # type: Set[str]
+    for element in root.iter("def"):
+        name = element.attrib["name"]
+        def_set.add(name)
+
+    return rasaeco.model.Definitions(model_set=model_set, def_set=def_set), []
+
+
+@icontract.require(lambda element: element.tag == "ref")
+def _parse_ref_element(element: ET.Element) -> Tuple[Optional[str], str]:
+    """Extract the scenario identifier and the definition name from the ref."""
+    name = element.attrib["name"]
+    if "#" in name:
+        scenario_id, ref = name.split("#")
+        return scenario_id, ref
+    else:
+        return None, name
+
+
+@icontract.require(lambda element: element.tag == "modelref")
+def _parse_modelref_element(element: ET.Element) -> Tuple[Optional[str], str]:
+    """Extract the scenario identifier and the model name from the modelref."""
+    name = element.attrib["name"]
+    if "#" in name:
+        scenario_id, modelref = name.split("#")
+        return scenario_id, modelref
+    else:
+        return None, name
+
+
+@icontract.require(lambda xml_path: xml_path.suffix == ".xml")
+def _validate_references(
+    scenario: rasaeco.model.Scenario,
+    ontology: rasaeco.model.Ontology,
+    xml_path: pathlib.Path,
+) -> List[str]:
+    """Validate that all the references are valid in the given scenario."""
+    try:
+        text = xml_path.read_text(encoding="utf-8")
+    except Exception as exception:
+        return [
+            f"Failed to read the intermediate representation "
+            f"of the scenario {xml_path}: {exception}"
+        ]
+
+    root = ET.fromstring(text)
+
+    errors = []  # type: List[str]
+
+    body = root.find("body")
+    assert body is not None
+
+    ##
+    # Validate that all modelrefs have the model defined
+    ##
+
+    for element in root.iter("modelref"):
+        scenario_id, modelref = _parse_modelref_element(element=element)
+        scenario_id = scenario_id if scenario_id is not None else scenario.identifier
+
+        if scenario_id not in ontology.scenario_map:
+            errors.append(
+                f"The modelref is invalid: {modelref!r}; "
+                f"the scenario with the identifier {scenario_id} does not exist."
+            )
+        elif modelref not in ontology.scenario_map[scenario_id].definitions.model_set:
+            errors.append(
+                f"The modelref is invalid: {modelref!r}; "
+                f"the model has not been specified."
+            )
+
+    ##
+    # Validate that all refs have the def defined
+    ##
+
+    for element in root.iter("ref"):
+        scenario_id, ref = _parse_ref_element(element=element)
+        scenario_id = scenario_id if scenario_id is not None else scenario.identifier
+
+        if scenario_id not in ontology.scenario_map:
+            errors.append(
+                f"The ref is invalid: {ref!r}; "
+                f"the scenario with the identifier {scenario_id} does not exist."
+            )
+        elif ref not in ontology.scenario_map[scenario_id].definitions.def_set:
+            errors.append(
+                f"The ref is invalid: {ref!r}; "
+                f"the definition has not been specified."
+            )
+
+    if errors:
+        return errors
+
+    return []
+
+
+@icontract.require(lambda xml_path: xml_path.suffix == ".xml")
+def _render_scenario(
+    scenario: rasaeco.model.Scenario,
+    ontology: rasaeco.model.Ontology,
+    xml_path: pathlib.Path,
+    html_path: pathlib.Path,
+) -> List[str]:
+    """Render a single scenario as HTML."""
+    try:
+        text = xml_path.read_text(encoding="utf-8")
+    except Exception as exception:
+        return [
+            f"Failed to read the intermediate representation "
+            f"of the scenario {xml_path}: {exception}"
+        ]
+
+    rel_pth_to_scenario_dir = pathlib.PurePosixPath(
+        *([".."] * len(scenario.relative_path.parent.parts))
+    )
+
+    root = ET.fromstring(text)
+
+    body = root.find("body")
+    assert body is not None
+
+    ##
+    # Convert <model> tags into <a> anchors and <h3> tags
+    ##
+
+    for element in root.iter("model"):
+        name = element.attrib["name"]
 
         element.tag = "div"
         element.attrib = {"class": "model"}
@@ -365,10 +525,8 @@ def _render_scenario(
     # Convert <def> tags into <a> anchors and <h3> tags
     ##
 
-    def_set = set()  # type: Set[str]
     for element in root.iter("def"):
         name = element.attrib["name"]
-        def_set.add(name)
 
         element.tag = "div"
         element.attrib = {"class": "def"}
@@ -390,51 +548,52 @@ def _render_scenario(
         element.insert(0, header_el)
 
     ##
-    # Validate that all modelrefs have the model defined
-    ##
-
-    for element in root.iter("modelref"):
-        modelref = element.attrib["name"]
-        if modelref not in model_set:
-            errors.append(f"The modelref is invalid: {modelref!r}")
-
-    ##
-    # Validate that all refs have the def defined
-    ##
-
-    for element in root.iter("ref"):
-        ref = element.attrib["name"]
-        if ref not in def_set:
-            errors.append(f"The ref is invalid: {ref!r}")
-
-    if errors:
-        return errors
-
-    ##
     # Replace <ref> tags with proper HTML
     ##
 
     for element in root.iter("ref"):
-        anchor_name = element.attrib["name"]
+        scenario_id, ref = _parse_ref_element(element=element)
+        if scenario_id is None:
+            link_text = ref
+            href = f"#def-{ref}"
+        else:
+            link_text = f"{ref} (from {scenario_id})"
+
+            href_pth = _html_path(
+                scenario_path=rel_pth_to_scenario_dir
+                / ontology.scenario_map[scenario_id].relative_path
+            )
+            href = f"{href_pth.as_posix()}#def-{ref}"
 
         element.tag = "a"
-        element.attrib = {"href": f"#def-{anchor_name}", "class": "ref"}
+        element.attrib = {"href": href, "class": "ref"}
 
         if len(element) == 0 and not element.text:
-            element.text = anchor_name
+            element.text = link_text
 
     ##
     # Replace <modelref> tags with proper HTML
     ##
 
     for element in root.iter("modelref"):
-        anchor_name = element.attrib["name"]
+        scenario_id, modelref = _parse_modelref_element(element=element)
+        if scenario_id is None:
+            link_text = modelref
+            href = f"#model-{modelref}"
+        else:
+            link_text = f"{modelref} (from {scenario_id})"
+
+            href_pth = _html_path(
+                scenario_path=rel_pth_to_scenario_dir
+                / ontology.scenario_map[scenario_id].relative_path
+            )
+            href = f"{href_pth.as_posix()}#model-{modelref}"
 
         element.tag = "a"
-        element.attrib = {"href": f"#model-{anchor_name}", "class": "modelref"}
+        element.attrib = {"href": href, "class": "modelref"}
 
         if len(element) == 0 and not element.text:
-            element.text = anchor_name
+            element.text = link_text
 
     ##
     # Replace <phase> tags with proper HTML
@@ -690,9 +849,7 @@ def _render_scenario(
     back_link = ET.Element("a")
 
     back_url = (
-        pathlib.PurePosixPath(
-            *([".."] * len(scenario_path.parent.relative_to(scenarios_dir).parts))
-        )
+        pathlib.PurePosixPath(*([".."] * len(scenario.relative_path.parent.parts)))
         / "ontology.html"
     ).as_posix()
 
@@ -704,14 +861,25 @@ def _render_scenario(
     # Save
     ##
 
-    target_pth = scenario_path.parent / (scenario_path.stem + ".html")
-
     try:
-        target_pth.write_bytes(ET.tostring(root, encoding="utf-8"))
+        html_path.write_bytes(ET.tostring(root, encoding="utf-8"))
     except Exception as exception:
-        return [f"Failed to write generated HTML code to {target_pth}: {exception}"]
+        return [f"Failed to write generated HTML code to {html_path}: {exception}"]
 
     return []
+
+
+def _xml_path(scenario_path: pathlib.Path) -> pathlib.Path:
+    """Generate the corresponding XML path of the intermediate representation."""
+    return scenario_path.parent / (scenario_path.stem + ".xml")
+
+
+PathT = TypeVar("PathT", pathlib.Path, pathlib.PurePosixPath)
+
+
+def _html_path(scenario_path: PathT) -> PathT:
+    """Generate the corresponding path of the HTML representation."""
+    return scenario_path.parent / (scenario_path.stem + ".html")
 
 
 def once(scenarios_dir: pathlib.Path) -> List[str]:
@@ -724,7 +892,24 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
     meta_map = dict()  # type: MutableMapping[str, rasaeco.meta.Meta]
 
     errors = []  # type: List[str]
-    for pth in sorted(scenarios_dir.glob("**/*.md")):
+
+    scenario_pths = sorted(scenarios_dir.glob("**/scenario.md"))
+    for pth in scenario_pths:
+        to_xml_errors = _render_scenario_to_xml(
+            scenario_path=pth, xml_path=_xml_path(pth)
+        )
+        for error in to_xml_errors:
+            errors.append(
+                f"When rendering {pth} to intermediate XML representation: {error}"
+            )
+
+        if errors:
+            continue
+
+    if errors:
+        return errors
+
+    for pth in scenario_pths:
         meta, meta_errors = rasaeco.meta.extract_meta(
             text=pth.read_text(encoding="utf-8")
         )
@@ -806,15 +991,23 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
                 )
             )
 
-        scenario = rasaeco.model.Scenario(
-            identifier=identifier,
-            title=meta["title"],
-            contact=meta["contact"],
-            volumetric=volumetric,
-            relative_path=path_map[identifier].relative_to(scenarios_dir),
-        )
+        pth = path_map[identifier]
+        definitions, extraction_errors = _extract_definitions(xml_path=_xml_path(pth))
+        if extraction_errors:
+            errors.extend(extraction_errors)
+        else:
+            assert definitions is not None
 
-        scenarios.append(scenario)
+            scenario = rasaeco.model.Scenario(
+                identifier=identifier,
+                title=meta["title"],
+                contact=meta["contact"],
+                volumetric=volumetric,
+                definitions=definitions,
+                relative_path=pth.relative_to(scenarios_dir),
+            )
+
+            scenarios.append(scenario)
 
     relations = []  # type: List[rasaeco.model.Relation]
     for identifier, meta in meta_map.items():
@@ -837,11 +1030,24 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
 
     for scenario in scenarios:
         pth = path_map[scenario.identifier]
+        validation_errors = _validate_references(
+            scenario=scenario, ontology=ontology, xml_path=_xml_path(pth)
+        )
+
+        for error in validation_errors:
+            errors.append(f"When validating references in {pth}: {error}")
+
+    if errors:
+        return errors
+
+    for scenario in scenarios:
+        pth = path_map[scenario.identifier]
+
         render_errors = _render_scenario(
             scenario=scenario,
             ontology=ontology,
-            scenario_path=pth,
-            scenarios_dir=scenarios_dir,
+            xml_path=_xml_path(pth),
+            html_path=_html_path(pth),
         )
 
         for error in render_errors:
