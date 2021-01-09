@@ -229,7 +229,9 @@ def _verify_all_tags_closed(xml_text: str) -> Optional[str]:
                 return (
                     f"{exception.msg}; the line was: {line!r}, "
                     f"the open tag(s) up to that point: {list(map(_element_to_str, open_tags))}. "
-                    f"Did you maybe forget to close the tag {_element_to_str(open_tags[-1])}?"
+                    f"Did you maybe forget to close the tag {_element_to_str(open_tags[-1])}? "
+                    f"See also https://github.com/mristin/rasaeco#known-issues in case you "
+                    f"have missing or too many new lines."
                 )
             else:
                 return f"{exception.msg}; the line was: {line!r}"
