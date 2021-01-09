@@ -21,8 +21,8 @@ with open(os.path.join(here, "requirements.txt"), encoding="utf-8") as fid:
 
 setup(
     name="rasaeco",
-    version="0.0.7",
-    description="Help analyze software requirements in AECO industry",
+    version="0.0.8",
+    description="Analyze software requirements in AECO industry",
     long_description=long_description,
     url="https://github.com/mristin/rasaeco",
     author="Marko Ristin",
@@ -33,7 +33,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     license="License :: OSI Approved :: MIT License",
-    keywords="BIM architecture civil engineering software requirements",
+    keywords="BIM architecture civil engineering construction software requirements",
     packages=find_packages(exclude=["tests"]),
     install_requires=install_requires,
     extras_require={
