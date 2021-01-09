@@ -3,6 +3,7 @@ import dataclasses
 import itertools
 import json
 import pathlib
+import re
 import textwrap
 import uuid
 import xml.etree.ElementTree as ET
@@ -16,8 +17,8 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Callable,
     Protocol,
+    Dict,
 )
 
 import PIL
@@ -185,10 +186,22 @@ def _render_volumetric_plot(
     return []
 
 
-def _element_with_text(tag: str, text: str) -> ET.Element:
+def _new_element(
+    tag: str,
+    text: Optional[str] = None,
+    attrib: Optional[Dict[str, str]] = None,
+    tail: Optional[str] = None,
+) -> ET.Element:
     """Create an element with text."""
     result = ET.Element(tag)
     result.text = text
+
+    if attrib is not None:
+        result.attrib = attrib
+
+    if tail is not None:
+        result.tail = tail
+
     return result
 
 
@@ -299,7 +312,12 @@ def _render_scenario_to_xml(
     # Parse as HTML
     ##
 
-    html_text = f"<html>\n<body>\n{document}\n</body>\n</html>"
+    html_text = (
+        f"<html>\n<body>\n"
+        f"<div id='index'></div>\n"
+        f"<div id='main'>{document}</div>\n"
+        f"</body>\n</html>"
+    )
 
     error = _verify_all_tags_closed(xml_text=html_text)
     if error:
@@ -319,9 +337,6 @@ def _render_scenario_to_xml(
     ##
     # Perform basic validation
     ##
-
-    body = root.find("body")
-    assert body is not None
 
     errors = []  # type: List[str]
 
@@ -428,9 +443,6 @@ def _validate_references(
 
     root = ET.fromstring(text)
 
-    body = root.find("body")
-    assert body is not None
-
     class SetGetterForScenario(Protocol):
         def __call__(self, scenario_id: str) -> Set[str]:
             ...
@@ -520,8 +532,21 @@ def _render_scenario(
 
     root = ET.fromstring(text)
 
-    body = root.find("body")
-    assert body is not None
+    main_div = None  # type: Optional[ET.Element]
+    for element in root.iter("div"):
+        if "id" in element.attrib and element.attrib["id"] == "main":
+            main_div = element
+            break
+
+    assert main_div is not None
+
+    index_div = None  # type: Optional[ET.Element]
+    for element in root.iter("div"):
+        if "id" in element.attrib and element.attrib["id"] == "index":
+            index_div = element
+            break
+
+    assert index_div is not None
 
     ##
     # Convert specification tags to proper HTML
@@ -535,26 +560,15 @@ def _render_scenario(
             element.tag = "div"
             element.attrib = {"class": tag}
 
-            header_el = ET.Element("h3")
-
-            anchor_el = ET.Element("a")
-            anchor_el.attrib = {"name": f"{tag}-{name}"}
-            anchor_el.text = " "
-            header_el.insert(0, anchor_el)
-
-            link_el = ET.Element("a")
-            link_el.attrib = {"href": f"#{tag}-{name}", "class": "anchor"}
-            link_el.text = "🔗"
-
-            if readable_title:
-                link_el.tail = name.replace("_", " ")
-            else:
-                link_el.tail = name
-
-            header_el.insert(0, link_el)
-            header_el.tail = "\n"
-
-            element.insert(0, header_el)
+            element.insert(
+                0,
+                _new_element(
+                    tag="h3",
+                    text=name.replace("_", " ") if readable_title else name,
+                    attrib={"data-anchor": f"{tag}-{name}"},
+                    tail="\n",
+                ),
+            )
 
     convert_tags_to_html(tag="model", readable_title=False)
     convert_tags_to_html(tag="def", readable_title=True)
@@ -652,13 +666,12 @@ def _render_scenario(
         element.tag = "span"
         element.attrib = {"class": "phase", "data-text": name}
 
-        sup_el = ET.Element("sup")
-        sup_el.text = readable
-        element.append(sup_el)
+        element.append(_new_element(tag="sup", text=readable))
 
         anchor = f"phase-anchor-{uuid.uuid4()}"
-        anchor_el = ET.Element("a", attrib={"id": anchor})
-        element.insert(0, anchor_el)
+
+        element.insert(0, _new_element(tag="a", attrib={"id": anchor}))
+
         phase_anchors.append(PhaseAnchor(identifier=anchor, phase=name))
 
     ##
@@ -674,32 +687,114 @@ def _render_scenario(
 
     for element in root.iter("level"):
         name = element.attrib["name"]
-        readable = name.replace("_", " ")
 
         element.tag = "span"
         element.attrib = {"class": "level", "data-text": name}
 
-        sup_el = ET.Element("sup")
-        sup_el.text = readable
-        element.append(sup_el)
+        element.append(_new_element(tag="sup", text=name.replace("_", " ")))
 
         anchor = f"level-anchor-{uuid.uuid4()}"
-        anchor_el = ET.Element("a", attrib={"id": anchor})
-        element.insert(0, anchor_el)
+
+        element.insert(0, _new_element(tag="a", attrib={"id": anchor}))
+
         level_anchors.append(LevelAnchor(identifier=anchor, level=name))
+
+    ##
+    # Anchor the remaining sections which have not been anchored so far
+    ##
+
+    section_anchor_set = set()  # type: Set[str]
+    for element in main_div.iter():
+        if re.match(r"^[hH]\d+$", element.tag) and "data-anchor" not in element.attrib:
+            assert element.text is not None
+            initial_anchor = f"section-{element.text.replace(' ', '_')}"
+
+            anchor = initial_anchor
+            i = 1
+            while anchor in section_anchor_set:
+                anchor = initial_anchor + str(i)
+                i += 1
+
+            element.attrib["data-anchor"] = anchor
+            section_anchor_set.add(anchor)
+
+    ##
+    # Add anchor links for all the headings and collect data for the table-of-contents
+    ##
+
+    @dataclasses.dataclass
+    class TocEntry:
+        """Represent an entry in the table of contents."""
+
+        text: str
+        anchor: str
+        level: int
+
+    toc = []  # type: List[TocEntry]
+
+    for element in main_div.iter():
+        mtch = re.match(r"^[hH](?P<section_level>\d+)$", element.tag)
+        if mtch:
+            section_level = int(mtch.group("section_level"))
+
+            assert "data-anchor" in element.attrib, (
+                f"Unexpected tag without data-anchor: "
+                f"{_element_to_str(element)} with text {element.text}"
+            )
+
+            anchor = element.attrib["data-anchor"]
+
+            link_el = _new_element(
+                "a",
+                text=element.text,
+                attrib={"class": "section-anchor", "href": f"#{anchor}"},
+            )
+
+            chain_el = _new_element("span", text="🔗", attrib={"class": "chain-symbol"})
+
+            anchor_el = _new_element("a", attrib={"name": anchor})
+
+            element.text = ""
+
+            element.insert(0, chain_el)
+            element.insert(0, link_el)
+            element.insert(0, anchor_el)
+
+            assert link_el.text is not None
+
+            toc.append(TocEntry(text=link_el.text, anchor=anchor, level=section_level))
+
+    ##
+    # Generate the table of contents
+    ##
+
+    index_div.append(_new_element("h2", "Table of Contents"))
+    ul_el = _new_element("ul", attrib={"class": "toc"})
+    index_div.append(ul_el)
+
+    toc_level_offset = min(entry.level for entry in toc) if len(toc) > 0 else 0
+
+    for entry in toc:
+        margin = 2.2 * (entry.level - toc_level_offset)
+        li_el = _new_element("li", attrib={"style": f"padding-left: {margin:.2f}em"})
+
+        link_el = _new_element(
+            "a", text=entry.text, attrib={"href": f"#{entry.anchor}"}
+        )
+        li_el.append(link_el)
+
+        ul_el.append(li_el)
 
     ##
     # Append phase index
     ##
 
     if phase_anchors:
-        heading_el = ET.Element("h2")
-        heading_el.text = "Phase Index"
-        body.append(heading_el)
+        index_div.append(_new_element("h2", "Phase Index"))
 
         list_el = ET.Element("ul")
         for phase_anch in phase_anchors:
-            link_el = ET.Element("a", attrib={"href": f"#{phase_anch.identifier}"})
+            link_el = _new_element("a", attrib={"href": f"#{phase_anch.identifier}"})
             link_el.text = phase_anch.phase
 
             item_el = ET.Element("li")
@@ -707,28 +802,29 @@ def _render_scenario(
 
             list_el.append(item_el)
 
-        body.append(list_el)
+        index_div.append(list_el)
 
     ##
     # Append level index
     ##
 
     if level_anchors:
-        heading_el = ET.Element("h2")
-        heading_el.text = "Level Index"
-        body.append(heading_el)
+        index_div.append(_new_element("h2", "Level Index"))
 
         list_el = ET.Element("ul")
         for level_anch in level_anchors:
-            link_el = ET.Element("a", attrib={"href": f"#{level_anch.identifier}"})
-            link_el.text = level_anch.level
-
             item_el = ET.Element("li")
-            item_el.append(link_el)
+            item_el.append(
+                _new_element(
+                    tag="a",
+                    text=level_anch.level,
+                    attrib={"href": f"#{level_anch.identifier}"},
+                )
+            )
 
             list_el.append(item_el)
 
-        body.append(list_el)
+        index_div.append(list_el)
 
     ##
     # Construct <head>
@@ -736,56 +832,84 @@ def _render_scenario(
 
     head_el = ET.Element("head")
 
-    meta = ET.Element("meta")
-    meta.attrib["charset"] = "utf-8"
-    head_el.append(meta)
-
-    live_script = ET.Element("script")
-    live_script.attrib["src"] = "https://livejs.com/live.js"
-    live_script.text = " "
-    head_el.append(live_script)
-
-    title_el = ET.Element("title")
-    title_el.text = scenario.title
-    head_el.append(title_el)
-
-    style_el = ET.Element("style")
-    style_el.text = textwrap.dedent(
-        """\
-        body {
-            margin-right: 5%;
-            margin-left: 5%;
-            margin-top: 5%;
-            margin-bottom: 5%;
-            padding: 1%;
-            border: 1px solid black;
-        }
-        
-        a {
-            text-decoration: none;
-        }
-        
-        a.anchor {
-            text-decoration: none;
-            font-size: x-small;
-            margin-right: 1em;
-        }
-
-        span.phase {
-            background-color: #eefbfb;
-        }
-
-        span.level {
-            background-color: #eefbee;
-        }
-
-        pre {
-            background-color: #eeeefb;
-            padding: 1em;
-        }
-        """
+    head_el.append(_new_element("meta", attrib={"charset": "utf-8"}))
+    head_el.append(
+        _new_element("script", text=" ", attrib={"src": "https://livejs.com/live.js"})
     )
-    head_el.append(style_el)
+    head_el.append(_new_element("title", text=scenario.title))
+
+    head_el.append(
+        _new_element(
+            "style",
+            text=textwrap.dedent(
+                """\
+                body {
+                    margin-top: 2em;
+                    padding: 0px;
+                }
+                
+                #main {
+                    float: left;
+                    width: 50em;
+                    margin-left: 3%;
+                    border: 1px solid black;
+                    padding: 2em;
+                }
+                
+                #index {
+                    float: left;
+                    width: 30%;
+                    border: 1px solid black;
+                    padding: 1em;
+                }
+                
+                ul.toc {
+                    list-style-type: none;
+                }
+                
+                ul.toc li {
+                    margin-bottom: 0.5em;
+                }
+                
+                a {
+                    text-decoration: none;
+                    color: blue;
+                }
+                
+                a:visited {
+                    color: blue;
+                }
+                
+                a.section-anchor {
+                    text-decoration: none;
+                    color: black;
+                }
+                
+                .chain-symbol {
+                    display: none;
+                    font-size: x-small;
+                    margin-left: 0.5em;
+                }
+                a.section-anchor:hover + .chain-symbol {
+                    display: inline-block;
+                }
+        
+                span.phase {
+                    background-color: #eefbfb;
+                }
+        
+                span.level {
+                    background-color: #eefbee;
+                }
+        
+                pre {
+                    background-color: #eeeefb;
+                    padding: 1em;
+                }
+                """
+            ),
+        )
+    )
 
     root.insert(0, head_el)
 
@@ -802,12 +926,9 @@ def _render_scenario(
             assert relation.source == scenario.identifier
 
             li = ET.Element("li")
-            li.append(
-                _element_with_text("span", f"{scenario.title} {relation.nature} ")
-            )
+            li.append(_new_element("span", f"{scenario.title} {relation.nature} "))
 
             target = ontology.scenario_map[relation.target]
-            link = ET.Element("a")
 
             target_url = (
                 pathlib.PurePosixPath(
@@ -817,16 +938,14 @@ def _render_scenario(
                 / f"{target.relative_path.stem}.html"
             ).as_posix()
 
-            link.attrib["href"] = target_url
-            link.text = target.title
-            li.append(link)
+            li.append(_new_element("a", text=target.title, attrib={"href": target_url}))
 
             ul.append(li)
 
         ul.tail = "\n"
-        body.insert(0, ul)
-        body.insert(
-            0, _element_with_text(tag="h2", text="Relations from Other Scenarios")
+        main_div.insert(0, ul)
+        main_div.insert(
+            0, _new_element(tag="h2", text="Relations from Other Scenarios")
         )
 
     if len(relations_to) > 0:
@@ -834,8 +953,6 @@ def _render_scenario(
         for relation in relations_to:
             assert relation.target == scenario.identifier
 
-            li = ET.Element("li")
-            link = ET.Element("a")
             source = ontology.scenario_map[relation.source]
 
             source_url = (
@@ -846,57 +963,57 @@ def _render_scenario(
                 / f"{source.relative_path.stem}.html"
             ).as_posix()
 
-            link.attrib["href"] = source_url
-            link.text = source.title
-            li.append(link)
-
-            li.append(
-                _element_with_text("span", f" {relation.nature} {scenario.title}")
-            )
+            li = ET.Element("li")
+            li.append(_new_element("a", text=source.title, attrib={"href": source_url}))
+            li.append(_new_element("span", f" {relation.nature} {scenario.title}"))
 
             ul.append(li)
 
-        body.insert(0, ul)
-        body.insert(
-            0, _element_with_text(tag="h2", text="Relations to Other Scenarios")
-        )
+        main_div.insert(0, ul)
+        main_div.insert(0, _new_element(tag="h2", text="Relations to Other Scenarios"))
 
     ##
     # Insert volumetric plot
     ##
 
-    img = ET.Element("img")
-    img.attrib["src"] = "volumetric.png"
-    img.attrib["style"] = "border: 1px solid #EEEEEE; padding: 10px;"
-
-    body.insert(0, img)
+    index_div.insert(
+        0,
+        _new_element(
+            "img",
+            attrib={
+                "src": "volumetric.png",
+                "style": "border: 1px solid #EEEEEE; padding: 10px;",
+            },
+        ),
+    )
 
     ##
     # Insert the contact
     ##
 
-    body.insert(0, _element_with_text(tag="p", text=scenario.contact))
+    contact_parts = [part.strip() for part in scenario.contact.split(",")]
+    contact_ul = ET.Element("ul")
+    for part in contact_parts:
+        contact_ul.append(_new_element("li", text=part))
 
     ##
     # Insert the title
     ##
 
-    body.insert(0, _element_with_text(tag="h1", text=scenario.title))
+    main_div.insert(0, _new_element(tag="h1", text=scenario.title))
 
     ##
     # Insert back button
     ##
-
-    back_link = ET.Element("a")
 
     back_url = (
         pathlib.PurePosixPath(*([".."] * len(scenario.relative_path.parent.parts)))
         / "ontology.html"
     ).as_posix()
 
-    back_link.attrib["href"] = back_url
-    back_link.text = "Back to ontology"
-    body.insert(0, back_link)
+    index_div.insert(
+        0, _new_element("a", text="Back to ontology", attrib={"href": back_url})
+    )
 
     ##
     # Save
