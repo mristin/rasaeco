@@ -112,7 +112,7 @@ def _render_volumetric_plot(
         )
     )
 
-    cubes = []
+    cubes = []  # type: List[np.ndarray]
     for cubelet in scenario.volumetric:
         phase_first_idx = rasaeco.model.PHASES.index(cubelet.phase_range.first)
         phase_last_idx = rasaeco.model.PHASES.index(cubelet.phase_range.last)
@@ -134,14 +134,19 @@ def _render_volumetric_plot(
 
         cubes.append(cube)
 
-    voxels = cubes[0]
-    for cube in cubes[1:]:
-        voxels = voxels | cube
+    voxels = None  # type: Optional[np.ndarray]
+
+    if cubes:
+        voxels = cubes[0]
+        for cube in cubes[1:]:
+            voxels = voxels | cube
 
     fig = plt.figure()
     try:
         ax = fig.gca(projection="3d")
-        ax.voxels(voxels, edgecolor="k")
+
+        if voxels is not None:
+            ax.voxels(voxels, edgecolor="k")
 
         ax.set_xticks(list(range(len(rasaeco.model.PHASES) + 1)))
         ax.set_xticklabels([""] * (len(rasaeco.model.PHASES) + 1))
