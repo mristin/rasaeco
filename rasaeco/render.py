@@ -360,6 +360,7 @@ def _render_scenario_to_xml(
         root.iter("acceptanceref"),
         root.iter("phase"),
         root.iter("level"),
+        root.iter("scenarioref"),
     ):
         if "name" not in element.attrib:
             errors.append(
@@ -448,6 +449,10 @@ def _validate_references(
 
     root = ET.fromstring(text)
 
+    ##
+    # Validate the references for different tags
+    ##
+
     class SetGetterForScenario(Protocol):
         def __call__(self, scenario_id: str) -> Set[str]:
             ...
@@ -484,32 +489,58 @@ def _validate_references(
 
         return errors
 
-    return (
+    errors = []  # type: List[str]
+
+    errors.extend(
         validate_references_for_tag(
             reference_tag="modelref",
             set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
                 scenario_id
             ].definitions.model_set,
         )
-        + validate_references_for_tag(
+    )
+
+    errors.extend(
+        validate_references_for_tag(
             reference_tag="ref",
             set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
                 scenario_id
             ].definitions.def_set,
         )
-        + validate_references_for_tag(
+    )
+
+    errors.extend(
+        validate_references_for_tag(
             reference_tag="testref",
             set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
                 scenario_id
             ].definitions.test_set,
         )
-        + validate_references_for_tag(
+    )
+
+    errors.extend(
+        validate_references_for_tag(
             reference_tag="acceptanceref",
             set_getter_for_scenario=lambda scenario_id: ontology.scenario_map[
                 scenario_id
             ].definitions.acceptance_set,
         )
     )
+
+    ##
+    # Validate the scenario references as a special case
+    ##
+
+    for element in root.iter("scenarioref"):
+        scenario_id = element.attrib["name"]
+
+        if scenario_id not in ontology.scenario_map:
+            errors.append(
+                f"The scenarioref is invalid: {_element_to_str(element)}; "
+                f"the scenario with the identifier {scenario_id} does not exist."
+            )
+
+    return errors
 
 
 _INFLECT_ENGINE = inflect.engine()
@@ -612,8 +643,7 @@ def _render_scenario(
             element.text = link_text
 
     @icontract.require(
-        lambda reference_tag: reference_tag
-        in ["modelref", "ref", "testref", "acceptanceref"]
+        lambda reference_tag: reference_tag in ["modelref", "testref", "acceptanceref"]
     )
     def convert_references_to_html(reference_tag: str) -> None:
         """Convert the reference tags to proper HTML."""
@@ -652,6 +682,25 @@ def _render_scenario(
     convert_references_to_html(reference_tag="modelref")
     convert_references_to_html(reference_tag="testref")
     convert_references_to_html(reference_tag="acceptanceref")
+
+    ##
+    # Convert <scenarioref>s to links
+    ##
+
+    for element in root.iter("scenarioref"):
+        scenario_id = element.attrib["name"]
+
+        target_scenario = ontology.scenario_map[scenario_id]
+
+        href = _html_path(
+            scenario_path=rel_pth_to_scenario_dir / target_scenario.relative_path
+        ).as_posix()
+
+        element.tag = "a"
+        element.attrib = {"href": href, "class": "scenarioref"}
+
+        if len(element) == 0 and not element.text:
+            element.text = f'"{target_scenario.title}"'
 
     ##
     # Replace <phase> tags with proper HTML

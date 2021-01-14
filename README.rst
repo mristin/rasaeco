@@ -8,9 +8,6 @@ RASAECO ("Requirements Analysis for Software in AECO Industry") is a tool
 we developed within the `BIMprove Project <https://www.bimprove-h2020.eu/>`_ to
 help us analyze the software requirements after the finished elicitation phase.
 
-Since the tool is still work-in-progress, we do not document yet how to write
-the scenarios. Please consult `sample_scenarios <sample_scenarios>`_ for examples.
-
 Installation
 ------------
 Please download and unzip the latest release from
@@ -236,6 +233,9 @@ You can reference the individual acceptance criteria using ``<acceptanceref name
 
 Analogous to ``<ref>`` and ``<modelref>``, references to acceptance criteria extend
 across scenarios.
+
+**References to a scenario as a whole**.
+You can reference a scenario from another scenario using ``<scenarioref name="..." />``.
 
 Further Examples
 ~~~~~~~~~~~~~~~~
