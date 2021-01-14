@@ -18,3 +18,5 @@ This scenario is intentionally left empty.
 This is a dummy reference to the model <modelref name="scaffolding#plan/main"/>.
 
 This is a dummy reference to the definition of <ref name="scaffolding#misplaced_scaffold"/>s.
+
+This is a dummy reference to <scenarioref name="scaffolding" />.
