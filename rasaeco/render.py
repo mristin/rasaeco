@@ -426,7 +426,7 @@ def _parse_reference_element(element: ET.Element) -> Tuple[Optional[str], str]:
     """Extract the scenario identifier and the name from a reference element."""
     name_attribute = element.attrib["name"]
     if "#" in name_attribute:
-        scenario_id, name = name_attribute.split("#")
+        scenario_id, name = name_attribute.split("#", 1)
         return scenario_id, name
     else:
         return None, name_attribute
