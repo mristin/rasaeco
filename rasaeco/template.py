@@ -20,8 +20,8 @@ ONTOLOGY_HTML_TPL = jinja2.Template(
 <body>
 
 <script type="text/javascript">
-    var w = 1000;
-    var h = 600;
+    var w = 1600;
+    var h = 1200;
     var linkDistance=200;
 
     var dataset = {{ dataset|indent }};
@@ -148,5 +148,19 @@ ONTOLOGY_HTML_TPL = jinja2.Template(
 
 </body>
 </html>
+"""
+)
+
+ONTOLOGY_DOT_TPL = jinja2.Template(
+    """\
+digraph G {
+{% for node in dataset.nodes %}{#
+#}    node{{ loop.index0 }} [href="{{ node.url }}", label={{ dumps(node.name) }}]
+{% endfor %}
+    
+{% for edge in dataset.edges %}{#
+#}    node{{ edge.source }} -> node{{ edge.target }} [label={{ dumps(edge.label) }}]
+{% endfor %}
+}
 """
 )

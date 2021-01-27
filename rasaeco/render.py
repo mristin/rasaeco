@@ -36,7 +36,7 @@ import rasaeco.model
 import rasaeco.template
 
 
-def _render_ontology(
+def _render_ontology_html(
     ontology: rasaeco.model.Ontology,
     scenarios_dir: pathlib.Path,
     path_map: Mapping[str, pathlib.Path],
@@ -82,14 +82,40 @@ def _render_ontology(
             )
         )
 
+    dataset = Dataset(nodes=nodes, edges=edges)
+
+    ##
+    # Render to HTML
+    ##
+
     pth = scenarios_dir / "ontology.html"
 
     ontology_html = rasaeco.template.ONTOLOGY_HTML_TPL.render(
-        dataset=json.dumps(Dataset(nodes=nodes, edges=edges), indent=2)
+        dataset=json.dumps(dataset, indent=2)
     )
 
     try:
         pth.write_text(ontology_html, encoding="utf-8")
+    except Exception as exception:
+        return [f"Failed to write the ontology to {pth}: {exception}"]
+
+    ##
+    # Render to DOT
+    ##
+
+    pth = scenarios_dir / "ontology.dot"
+
+    for node in nodes:
+        assert (
+            " " not in node["url"]
+        ), f"Unexpected double quote in the URL of a node: {node['url']}"
+
+    ontology_dot = rasaeco.template.ONTOLOGY_DOT_TPL.render(
+        dataset=dataset, dumps=json.dumps
+    )
+
+    try:
+        pth.write_text(ontology_dot, encoding="utf-8")
     except Exception as exception:
         return [f"Failed to write the ontology to {pth}: {exception}"]
 
@@ -1238,7 +1264,9 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
         plot_pth = path_map[scenario.identifier].parent / "volumetric.png"
         _render_volumetric_plot(plot_path=plot_pth, scenario=scenario)
 
-    _render_ontology(ontology=ontology, scenarios_dir=scenarios_dir, path_map=path_map)
+    _render_ontology_html(
+        ontology=ontology, scenarios_dir=scenarios_dir, path_map=path_map
+    )
 
     for scenario in scenarios:
         pth = path_map[scenario.identifier]
