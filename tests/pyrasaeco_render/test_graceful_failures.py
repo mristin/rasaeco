@@ -1,13 +1,9 @@
 import io
 import os
 import pathlib
-import queue
 import shutil
-import sys
-import threading
-import time
-import unittest
 import tempfile
+import unittest
 
 import rasaeco.pyrasaeco_render
 
