@@ -743,7 +743,10 @@ def _render_scenario(
         name = element.attrib["name"]
         readable = name.replace("_", " ")
 
-        element.tag = "span"
+        # Assume that paragraphs are rendered as <p> from markdown to html.
+        contains_paragraph = False if next(element.iter("p"), None) is None else True
+
+        element.tag = "span" if not contains_paragraph else "div"
         element.attrib = {"class": "phase", "data-text": name}
 
         element.append(_new_element(tag="sup", text=readable))
@@ -768,7 +771,10 @@ def _render_scenario(
     for element in root.iter("level"):
         name = element.attrib["name"]
 
-        element.tag = "span"
+        # Assume that paragraphs are rendered as <p> from markdown to html.
+        contains_paragraph = False if next(element.iter("p"), None) is None else True
+
+        element.tag = "span" if not contains_paragraph else "div"
         element.attrib = {"class": "level", "data-text": name}
 
         element.append(_new_element(tag="sup", text=name.replace("_", " ")))
@@ -974,11 +980,11 @@ def _render_scenario(
                     display: inline-block;
                 }
         
-                span.phase {
+                span.phase, div.phase {
                     background-color: #eefbfb;
                 }
         
-                span.level {
+                span.level, div.level {
                     background-color: #eefbee;
                 }
         
