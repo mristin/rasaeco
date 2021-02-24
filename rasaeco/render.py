@@ -1006,7 +1006,7 @@ def _render_scenario(
             assert relation.source == scenario.identifier
 
             li = ET.Element("li")
-            li.append(_new_element("span", f"{scenario.title} {relation.nature} "))
+            li.append(_new_element("span", f"{scenario.title} → {relation.nature} → "))
 
             target = ontology.scenario_map[relation.target]
 
@@ -1024,9 +1024,7 @@ def _render_scenario(
 
         ul.tail = "\n"
         main_div.insert(0, ul)
-        main_div.insert(
-            0, _new_element(tag="h2", text="Relations from Other Scenarios")
-        )
+        main_div.insert(0, _new_element(tag="h2", text="Relations to Other Scenarios"))
 
     if len(relations_to) > 0:
         ul = ET.Element("ul")
@@ -1045,12 +1043,14 @@ def _render_scenario(
 
             li = ET.Element("li")
             li.append(_new_element("a", text=source.title, attrib={"href": source_url}))
-            li.append(_new_element("span", f" {relation.nature} {scenario.title}"))
+            li.append(_new_element("span", f" ← {relation.nature} ← {scenario.title}"))
 
             ul.append(li)
 
         main_div.insert(0, ul)
-        main_div.insert(0, _new_element(tag="h2", text="Relations to Other Scenarios"))
+        main_div.insert(
+            0, _new_element(tag="h2", text="Relations from Other Scenarios")
+        )
 
     ##
     # Insert volumetric plot
