@@ -82,8 +82,11 @@ class PhaseRange:
         self.first = first
         self.last = last
 
-
-LEVELS = ["device", "machine", "zone", "site", "office", "company", "network"]
+# TODO: re-render bimprove scenarios, just fix this in volumetric and markings
+# TODO: allow colouring of volumetric as optional -- so that we can see the puzzle!
+# TODO: allow caption for the volumetric
+LEVELS = ["device/person", "machine/crew", "zone", "site", "office", "company",
+          "network"]
 LEVEL_SET = set(LEVELS)
 
 

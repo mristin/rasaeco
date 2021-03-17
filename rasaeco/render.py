@@ -203,6 +203,7 @@ def _render_volumetric_plot(
 
         try:
             plt.savefig(str(plot_path))
+            plt.savefig(str(plot_path) + ".pdf", format="pdf")  # TODO: remove
         except Exception as exception:
             return [f"Failed to save the volumetric plot to {plot_path}: {exception}"]
     finally:
