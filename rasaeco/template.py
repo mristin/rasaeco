@@ -155,7 +155,12 @@ ONTOLOGY_DOT_TPL = jinja2.Template(
     """\
 digraph G {
 {% for node in dataset.nodes %}{#
-#}    node{{ loop.index0 }} [href="{{ node.url }}", label={{ dumps(node.name) }}]
+#}    node{{ loop.index0 }} [
+        href="{{ node.url }}", 
+        label=<<TABLE cellspacing="0" border="0" cellborder="0">
+            <TR><TD fixedsize="true" width="50" height="50"
+                ><IMG SRC="{{ node.thumbnail_url }}"/></TD></TR>
+            <TR><TD>{{ node.name }}</TD></TR></TABLE>>]
 {% endfor %}
     
 {% for edge in dataset.edges %}{#

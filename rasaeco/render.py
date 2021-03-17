@@ -46,6 +46,7 @@ def _render_ontology_html(
     class Node(TypedDict):
         name: str
         url: str
+        thumbnail_url: str
 
     class Edge(TypedDict):
         source: int
@@ -62,7 +63,15 @@ def _render_ontology_html(
             scenario.relative_path.stem + ".html"
         )
 
-        nodes.append(Node(name=scenario.title, url=rel_html_pth.as_posix()))
+        rel_thumbnail_pth = scenario.relative_path.parent / "volumetric_thumb.svg"
+
+        nodes.append(
+            Node(
+                name=scenario.title,
+                url=rel_html_pth.as_posix(),
+                thumbnail_url=rel_thumbnail_pth.as_posix(),
+            )
+        )
 
     edges = []  # type: List[Edge]
     for relation in ontology.relations:
@@ -115,7 +124,9 @@ def _render_ontology_html(
 
 
 def _render_volumetric_plot(
-    plot_path: pathlib.Path, scenario: rasaeco.model.Scenario
+    plot_path: pathlib.Path,
+    plot_thumbnail_path: pathlib.Path,
+    scenario: rasaeco.model.Scenario,
 ) -> List[str]:
     """
     Render the 3D volumetric plot and store it as an image.
@@ -159,6 +170,7 @@ def _render_volumetric_plot(
         for cube in cubes[1:]:
             voxels = voxels | cube
 
+    # Large volumetric
     fig = plt.figure()
     try:
         ax = fig.gca(projection="3d")
@@ -194,17 +206,111 @@ def _render_volumetric_plot(
             )
 
         try:
-            plt.savefig(str(plot_path))
+            plt.savefig(str(plot_path), pad_inches=0)
         except Exception as exception:
             return [f"Failed to save the volumetric plot to {plot_path}: {exception}"]
     finally:
         plt.close(fig)
 
-    # Crop manually
-    with PIL.Image.open(plot_path) as image:
-        # left, upper, right, lower
-        image_crop = image.crop((139, 86, 567, 450))
-        image_crop.save(plot_path)
+    # Thumbnail
+    fig = plt.figure()
+    try:
+        ax = fig.gca(projection="3d")
+
+        if voxels is not None:
+            ax.voxels(voxels, edgecolor="k")
+
+        # No tick labels
+        ax.set_xticks(list(range(len(rasaeco.model.PHASES) + 1)))
+        ax.set_xticklabels([""] * (len(rasaeco.model.PHASES) + 1))
+
+        ax.set_yticks(list(range(len(rasaeco.model.LEVELS) + 1)))
+        ax.set_yticklabels([""] * (len(rasaeco.model.LEVELS) + 1))
+
+        ax.set_zticks(range(len(rasaeco.model.ASPECTS) + 1))
+        ax.set_zticklabels([""] * (len(rasaeco.model.ASPECTS) + 1))
+
+        ax.set_xlabel("Phases", color="green", fontsize=25)
+        ax.set_ylabel("Levels", color="red", fontsize=25)
+        ax.set_zlabel("Aspects", color="blue", fontsize=25)
+
+        try:
+            plt.savefig(str(plot_thumbnail_path))
+        except Exception as exception:
+            return [f"Failed to save the volumetric plot to {plot_path}: {exception}"]
+    finally:
+        plt.close(fig)
+
+    # Crop and resize manually
+    if plot_path.suffix.lower() == ".png":
+        with PIL.Image.open(plot_path) as image:
+            # left, upper, right, lower
+            image_crop = image.crop((139, 86, 567, 450))
+            image_crop.save(plot_path)
+    elif plot_path.suffix.lower() == ".svg":
+        svg_text = plot_path.read_text(encoding="utf-8")
+
+        # This is hacky, but gets the job done.
+        # If matplotlib ever changes the SVG export, this will break.
+        original_marker = (
+            '<svg height="345.6pt" version="1.1" viewBox="0 0 460.8 345.6" '
+            'width="460.8pt" xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        )
+
+        if original_marker not in svg_text:
+            return [
+                f"The SVG exported by matplotlib had unexpected structure. "
+                f"Please create a GitHub issue and send the content "
+                f"of the file: {plot_path}"
+            ]
+
+        replacement = (
+            '<svg height="255" version="1.1" viewBox="103 61.554 300.49 263.392" '
+            'width="300" xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        )
+        svg_text = svg_text.replace(original_marker, replacement)
+
+        plot_path.write_text(svg_text, encoding="utf-8")
+    else:
+        raise NotImplementedError(f"Cropping and resizing of plot path: {plot_path}")
+
+    # Crop and resize manually
+    if plot_thumbnail_path.suffix.lower() == ".png":
+        with PIL.Image.open(plot_thumbnail_path) as image:
+            # left, upper, right, lower
+            with image.crop((139, 86, 567, 450)) as image_crop:
+                new_size = (round(143 * 0.5), round(121 * 0.5))
+                with image_crop.resize(new_size) as image_resized:
+                    image_resized.save(plot_thumbnail_path)
+    elif plot_thumbnail_path.suffix.lower() == ".svg":
+        svg_text = plot_thumbnail_path.read_text(encoding="utf-8")
+
+        # This is hacky, but gets the job done.
+        # If matplotlib ever changes the SVG export, this will break.
+        original_marker = (
+            '<svg height="345.6pt" version="1.1" viewBox="0 0 460.8 345.6" '
+            'width="460.8pt" xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        )
+
+        if original_marker not in svg_text:
+            return [
+                f"The SVG exported by matplotlib had unexpected structure. "
+                f"Please create a GitHub issue and send the content "
+                f"of the file: {plot_thumbnail_path}"
+            ]
+
+        replacement = (
+            '<svg height="75" version="1.1" viewBox="114.314 57.873 294.953 266.05" '
+            'width="100" '
+            'xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        )
+        svg_text = svg_text.replace(original_marker, replacement)
+
+        plot_thumbnail_path.write_text(svg_text, encoding="utf-8")
 
     return []
 
@@ -214,6 +320,7 @@ def _new_element(
     text: Optional[str] = None,
     attrib: Optional[Dict[str, str]] = None,
     tail: Optional[str] = None,
+    children: Optional[List[ET.Element]] = None,
 ) -> ET.Element:
     """Create an element with text."""
     result = ET.Element(tag)
@@ -224,6 +331,10 @@ def _new_element(
 
     if tail is not None:
         result.tail = tail
+
+    if children is not None:
+        for child in children:
+            result.append(child)
 
     return result
 
@@ -724,11 +835,17 @@ def _render_scenario(
     index_div.insert(
         0,
         _new_element(
-            "img",
-            attrib={
-                "src": "volumetric.png",
-                "style": "border: 1px solid #EEEEEE; padding: 10px;",
-            },
+            "p",
+            children=[
+                _new_element(
+                    "img",
+                    attrib={
+                        "src": "volumetric.svg",
+                        "style": "border: 1px solid #EEEEEE; padding: "
+                        "10px; margin: 0px;",
+                    },
+                )
+            ],
         ),
     )
 
@@ -797,8 +914,22 @@ def once(scenarios_dir: pathlib.Path) -> List[str]:
     assert ontology is not None
 
     for scenario in ontology.scenarios:
-        plot_pth = scenarios_dir / scenario.relative_path.parent / "volumetric.png"
-        _render_volumetric_plot(plot_path=plot_pth, scenario=scenario)
+        for suffix in [".png", ".svg"]:
+            plot_pth = (
+                scenarios_dir / scenario.relative_path.parent / f"volumetric{suffix}"
+            )
+
+            plot_thumbnail_pth = (
+                scenarios_dir
+                / scenario.relative_path.parent
+                / f"volumetric_thumb{suffix}"
+            )
+
+            _render_volumetric_plot(
+                plot_path=plot_pth,
+                plot_thumbnail_path=plot_thumbnail_pth,
+                scenario=scenario,
+            )
 
     _render_ontology_html(ontology=ontology, scenarios_dir=scenarios_dir)
 
