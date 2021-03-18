@@ -83,7 +83,15 @@ class PhaseRange:
         self.last = last
 
 
-LEVELS = ["device", "machine", "zone", "site", "office", "company", "network"]
+LEVELS = [
+    "device/person",
+    "machine/crew",
+    "zone",
+    "site",
+    "office",
+    "company",
+    "network",
+]
 LEVEL_SET = set(LEVELS)
 
 
