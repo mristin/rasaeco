@@ -230,9 +230,9 @@ def _render_volumetric_plot(
         ax.set_zticks(range(len(rasaeco.model.ASPECTS) + 1))
         ax.set_zticklabels([""] * (len(rasaeco.model.ASPECTS) + 1))
 
-        ax.set_xlabel("Phases", color="green", fontsize=25)
-        ax.set_ylabel("Levels", color="red", fontsize=25)
-        ax.set_zlabel("Aspects", color="blue", fontsize=25)
+        ax.set_xlabel("Phases", color="green", fontsize=40)
+        ax.set_ylabel("Levels", color="red", fontsize=40)
+        ax.set_zlabel("Aspects", color="blue", fontsize=40)
 
         try:
             plt.savefig(str(plot_thumbnail_path))
