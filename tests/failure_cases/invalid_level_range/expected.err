@@ -1,1 +1,1 @@
-In file <path to scenario.md> and cubelet 1: Invalid level range: Unexpected end of a level range: 'totally invalid'; possible levels are: ['device', 'machine', 'zone', 'site', 'office', 'company', 'network']
+In file <path to scenario.md> and cubelet 1: Invalid level range: Unexpected end of a level range: 'totally invalid'; possible levels are: ['device/person', 'machine/crew', 'zone', 'site', 'office', 'company', 'network']
