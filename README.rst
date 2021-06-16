@@ -8,6 +8,15 @@ RASAECO ("Requirements Analysis for Software in AECO Industry") is a tool
 we developed within the `BIMprove Project <https://www.bimprove-h2020.eu/>`_ to
 help us analyze the software requirements after the finished elicitation phase.
 
+The tools was developed by:
+* Marko Ristin (rist@zhaw.ch),
+* Dag Fjeld Edvardsen (dag.fjeld.edvardsen@catenda.no), and
+* Hans Wernher van de Venn (vhns@zhaw.ch).
+
+If you want to cite the tool, please cite the corresponding publication:
+
+*Ristin, Marko and Edvardsen, Dag Fjeld and van de Venn, Hans Wernher: "RASAECO: Requirements Analysis of Software for the AECO Industry", 29th IEEE International Requirements Engineering Conference, 2021.*
+
 Installation
 ------------
 Please download and unzip the latest release from
