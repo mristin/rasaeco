@@ -1,8 +1,21 @@
 RASAECO
 =======
 
-.. image:: https://travis-ci.com/mristin/rasaeco.svg?branch=master
-    :target: https://travis-ci.com/mristin/rasaeco
+.. image:: https://github.com/mristin/rasaeco/actions/workflows/check.yml/badge.svg
+    :target: https://github.com/mristin/rasaeco/actions/workflows/check.yml
+    :alt: Check
+
+.. image:: https://coveralls.io/repos/github/mristin/rasaeco/badge.svg?branch=main
+    :target: https://coveralls.io/github/mristin/rasaeco?branch=main
+    :alt: Test coverage
+
+.. image:: https://badge.fury.io/py/rasaeco.svg
+    :target: https://badge.fury.io/py/rasaeco
+    :alt: PyPI - version
+
+.. image:: https://img.shields.io/pypi/pyversions/rasaeco.svg
+    :alt: PyPI - Python Version
+
 
 RASAECO ("Requirements Analysis for Software in AECO Industry") is a tool
 we developed within the `BIMprove Project <https://www.bimprove-h2020.eu/>`_ to
@@ -20,8 +33,38 @@ If you want to cite the tool, please cite the corresponding publication:
 
 Installation
 ------------
+Single-File Release
+~~~~~~~~~~~~~~~~~~~
 Please download and unzip the latest release from
 `the GitHub release page <https://github.com/mristin/rasaeco/releases>`_.
+
+From PyPI
+~~~~~~~~~
+The tool is also available on `PyPI <https://pypi.org>`_.
+
+Create a virtual environment:
+
+.. code-block::
+
+    python -m venv venv
+
+Activate it (in Windows):
+
+.. code-block::
+
+    venv\Scripts\activate
+
+or in Linux:
+
+.. code-block::
+
+    source venv/bin/activate
+
+Install the tool in the virtual environment:
+
+.. code-block::
+
+    pip3 install rasaeco
 
 Usage
 -----
@@ -90,8 +133,8 @@ Help
     pyrasaeco-render.exe once -h
     pyrasaeco-render.exe continuously -h
 
-Cheatsheet
-----------
+Cheat-sheet
+-----------
 
 Directory Structure
 ~~~~~~~~~~~~~~~~~~~
