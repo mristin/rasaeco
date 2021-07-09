@@ -35,7 +35,7 @@ It allows you to represent and relate the scenarios in that scenario space, as w
 The scenarios are written in markdown with additional special markup tags.
 The tool renders the scenarios into a collection of HTML documents giving you an introductory overview as well as pleasant reading experience based on multi-media and hyper-text.
 
-Please refer to the corresponding publication for more details (see the next section, `Contributors and Citation <#contributors-and-citation>`_).
+Please refer to the corresponding publication for more details (see the next section).
 
 Contributors and Citation
 -------------------------
