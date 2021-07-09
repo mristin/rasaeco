@@ -152,7 +152,9 @@ class ThreadedServer:
 
         class Handler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):  # type: ignore
-                super().__init__(*args, directory=str(scenarios_dir), **kwargs)  # type: ignore
+                super().__init__(
+                    *args, directory=str(scenarios_dir), **kwargs
+                )  # type: ignore
 
             def log_message(self, format, *args):  # type: ignore
                 pass
@@ -330,6 +332,24 @@ def run(argv: List[str], stdout: TextIO, stderr: TextIO) -> int:
         for error in errors:
             print(error, file=stderr)
             return 1
+
+    assert command is not None
+
+    if not command.scenarios_dir.exists():
+        print(
+            f"The directory you specified in --scenarios_dir does not exist "
+            f"on your system: {command.scenarios_dir}",
+            file=stderr,
+        )
+        return 1
+
+    if not command.scenarios_dir.is_dir():
+        print(
+            f"The path you specified in --scenarios_dir is expected to be a directory, "
+            f"but it is not: {command.scenarios_dir}",
+            file=stderr,
+        )
+        return 1
 
     if isinstance(command, Once):
         errors = rasaeco.render.once(scenarios_dir=command.scenarios_dir)
