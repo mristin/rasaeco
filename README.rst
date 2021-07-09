@@ -21,6 +21,25 @@ RASAECO ("Requirements Analysis for Software in AECO Industry") is a tool
 we developed within the `BIMprove Project <https://www.bimprove-h2020.eu/>`_ to
 help us analyze the software requirements after the finished elicitation phase.
 
+Introduction
+------------
+Digitalization is forging its path in the architecture, engineering, construction, operation (AECO) industry.
+This trend demands not only solutions for data governance but also sophisticated cyber-physical systems with a high variety of stakeholder background and very complex requirements.
+Existing approaches to general requirements engineering ignore the context of the AECO industry.
+This makes it harder for the software engineers usually lacking the knowledge of the industry context to elicit, analyze and structure the requirements and to effectively communicate with AECO professionals.
+
+To live up to that task, we implemented a tool for collecting AECO-specific software requirements as scenarios with the aim to foster reuse and leverage domain knowledge.
+The tool is based on a common pre-defined scenario space.
+It allows you to represent and relate the scenarios in that scenario space, as well as specifically mark how the individual parts of the scenario relate to other scenarios and the space in general.
+
+The scenarios are written in markdown with additional special markup tags.
+The tool renders the scenarios into a collection of HTML documents giving you an introductory overview as well as pleasant reading experience based on multi-media and hyper-text.
+
+Please refer to the corresponding publication for more details (see the next section, `Contributors and Citation <#contributors-and-citation>`_).
+
+Contributors and Citation
+-------------------------
+
 The tools was developed by:
 
 * Marko Ristin (rist@zhaw.ch),
