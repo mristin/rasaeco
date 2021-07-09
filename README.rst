@@ -65,19 +65,19 @@ Create a virtual environment:
 
 .. code-block::
 
-    python -m venv venv
+    python -m venv venv-rasaeco
 
 Activate it (in Windows):
 
 .. code-block::
 
-    venv\Scripts\activate
+    venv-rasaeco\Scripts\activate
 
 or in Linux:
 
 .. code-block::
 
-    source venv/bin/activate
+    source venv-rasaeco/bin/activate
 
 Install the tool in the virtual environment:
 
