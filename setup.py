@@ -21,7 +21,7 @@ with open(os.path.join(here, "requirements.txt"), encoding="utf-8") as fid:
 
 setup(
     name="rasaeco",
-    version="0.0.14",
+    version="0.0.15",
     description="Analyze software requirements in AECO industry",
     long_description=long_description,
     url="https://github.com/mristin/rasaeco",
