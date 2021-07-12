@@ -24,6 +24,7 @@ setup(
     version="0.0.15",
     description="Analyze software requirements in AECO industry",
     long_description=long_description,
+    long_description_content_type="text/x-rst",
     url="https://github.com/mristin/rasaeco",
     author="Marko Ristin",
     author_email="marko@ristin.ch",

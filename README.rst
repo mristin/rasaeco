@@ -73,7 +73,7 @@ Activate it (in Windows):
 
     venv-rasaeco\Scripts\activate
 
-or in Linux:
+or in Linux and OS X:
 
 .. code-block::
 
@@ -85,8 +85,10 @@ Install the tool in the virtual environment:
 
     pip3 install rasaeco
 
-Usage
------
+Usage (Windows)
+---------------
+*(Please see below for the instructions for Linux / OS X.)*
+
 Start your native Windows command prompt.
 
 (Please be careful not to start "Developer Command Prompt for VS 2019" or similar
@@ -94,8 +96,8 @@ as it includes a 32bit version of Python3 in its environment!)
 
 Change to the directory where you unzipped the release.
 
-Render once
-~~~~~~~~~~~
+Render once (Windows)
+~~~~~~~~~~~~~~~~~~~~~
 Render the scenarios in-place once:
 
 .. code-block::
@@ -110,8 +112,8 @@ Open the scenario ontology with your browser from:
 (Don't forget to change ``c:\some\path\to\scenarios`` again to fit 
 your system.)
 
-Render continuously
-~~~~~~~~~~~~~~~~~~~
+Render continuously (Windows)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Monitor the scenario files and re-render on changes:
 
 .. code-block::
@@ -127,8 +129,8 @@ Open the scenario ontology with your browser from:
 your system.)
 
 
-Render continuously + automatic refresh
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Render continuously + automatic refresh (Windows)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 `pyrasaeco-render` can also start a demo server for you so that you do not have
 to manually re-load in the browser. You have to specify the port and the server
@@ -144,13 +146,76 @@ will be automatically started:
 
 The ontology will be available on: ``http://localhost:8000``.
 
-Help
-~~~~
+Help (Windows)
+~~~~~~~~~~~~~~
 .. code-block::
 
     pyrasaeco-render.exe -h
     pyrasaeco-render.exe once -h
     pyrasaeco-render.exe continuously -h
+
+Usage (Linux / OS X)
+--------------------
+
+Start your preferred terminal.
+
+Activate the virtual environment in which you installed the RASAECO tool (please see Section "Installation" above).
+
+Render once (Linux / OS X)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Render the scenarios in-place once:
+
+.. code-block::
+
+    pyrasaeco-render once --scenarios_dir /some/path/to/scenarios
+
+(Change ``/some/path/to/scenarios`` to fit your system.
+If it is relative to your virtual environment, omit the leading slash, *e.g.*, ``some/path/to/scenarios``.)
+
+Open the scenario ontology with your browser from:
+``/some/path/to/scenarios/ontology.html``.
+
+(Don't forget to change ``/some/path/to/scenarios`` again to fit your system.)
+
+Render continuously (Linux / OS X)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Monitor the scenario files and re-render on changes:
+
+.. code-block::
+
+    pyrasaeco-render continuously --scenarios_dir /some/path/to/scenarios
+
+(Change ``/some/path/to/scenarios`` to fit your system.)
+
+Open the scenario ontology with your browser from:
+``/some/path/to/scenarios/ontology.html``.
+
+(Don't forget to change ``/some/path/to/scenarios`` again to fit your system.)
+
+Render continuously + automatic refresh (Linux / OS X)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`pyrasaeco-render` can also start a demo server for you so that you do not have to manually re-load in the browser.
+You have to specify the port and the server will be automatically started:
+
+.. code-block::
+
+    pyrasaeco-render continuously
+        --scenarios_dir /some/path/to/scenarios
+        --port 8000
+
+(Change ``/some/path/to/scenarios`` to fit your system.)
+
+The ontology will be available on: ``http://localhost:8000``.
+
+Help (Linux / OS X)
+~~~~~~~~~~~~~~~~~~~
+.. code-block::
+
+    pyrasaeco-render -h
+    pyrasaeco-render once -h
+    pyrasaeco-render continuously -h
+
 
 Cheat-sheet
 -----------
